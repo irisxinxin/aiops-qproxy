@@ -3,370 +3,749 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
 
-/***************
- * Types
- ***************/
-
-// NumOrString 既可解析 "3.0" 也可解析 3.0
-type NumOrString struct {
-	S string
-}
-
-func (ns *NumOrString) UnmarshalJSON(b []byte) error {
-	// 去掉空白
-	t := bytes.TrimSpace(b)
-	if len(t) == 0 || bytes.Equal(t, []byte("null")) {
-		ns.S = ""
-		return nil
-	}
-	// 字符串
-	if t[0] == '"' {
-		var s string
-		if err := json.Unmarshal(t, &s); err != nil {
-			return err
-		}
-		ns.S = s
-		return nil
-	}
-	// 数字 -> 转成字符串保存
-	var num json.Number
-	if err := json.Unmarshal(t, &num); err == nil {
-		ns.S = num.String()
-		return nil
-	}
-	// 其它类型，直接转字符串
-	ns.S = string(t)
-	return nil
-}
+/*
+ 环境变量（保持与你现有仓库一致的默认值）
+  - Q_BIN            : q CLI 路径（必需，或使用 mock）
+  - QWORKDIR         : 工作根目录（默认: ./）
+  - QLOG_DIR         : 日志输出目录（默认: ./logs）
+  - QCTX_DIR         : 可复用 context 存放目录（默认: ./ctx/final）
+  - Q_SOP_DIR        : 额外 SOP JSONL 目录（可选，启用后每次都会作为前置 context）
+  - Q_SOP_PREPEND    : "1" = 启用 SOP 预加载（默认启用）
+  - Q_FALLBACK_CTX   : 附加的兜底 context 文件（可选，文本/JSONL 都可；每次都前置）
+  - NO_COLOR/CLICOLOR/TERM : 抑制 q 彩色输出（建议 systemd 中设置）
+*/
 
 type Alert struct {
-	Status    string         `json:"status"`
-	Env       string         `json:"env"`
-	Region    string         `json:"region"`
-	Service   string         `json:"service"`
-	Category  string         `json:"category"`
-	Severity  string         `json:"severity"`
-	Title     string         `json:"title"`
-	GroupID   string         `json:"group_id"`
-	Method    string         `json:"method"`
-	Path      string         `json:"path"`
-	Threshold NumOrString    `json:"threshold"`
-	Window    string         `json:"window"`
-	Duration  string         `json:"duration"`
-	Metadata  map[string]any `json:"metadata"`
+	Status    string          `json:"status"`
+	Env       string          `json:"env"`
+	Region    string          `json:"region"`
+	Service   string          `json:"service"`
+	Category  string          `json:"category"`
+	Severity  string          `json:"severity"`
+	Title     string          `json:"title"`
+	GroupID   string          `json:"group_id"`
+	Method    string          `json:"method,omitempty"`
+	Path      string          `json:"path,omitempty"`
+	Window    string          `json:"window,omitempty"`
+	Duration  string          `json:"duration,omitempty"`
+	Threshold json.RawMessage `json:"threshold,omitempty"` // 可能是数字/字符串
+	Metadata  json.RawMessage `json:"metadata,omitempty"`
 }
 
-// 便于识别/落盘的签名
-func (a Alert) Signature() string {
-	parts := []string{
-		"v2",
-		"svc=" + a.Service,
-		"region=" + a.Region,
-		"cat=" + a.Category,
-		"sev=" + a.Severity,
-	}
-	return strings.Join(parts, "|")
+type SopLine struct {
+	Title     string   `json:"title"`
+	Keys      []string `json:"keys"`
+	Priority  string   `json:"priority"`
+	Prechecks []string `json:"prechecks"`
+	Actions   []string `json:"actions"`
+	Grafana   []string `json:"grafana"`
+	Notes     string   `json:"notes"`
+	Refs      []string `json:"refs"`
 }
 
-/***************
- * Utils
- ***************/
+// =========== 工具函数 ===========
 
 func getenv(k, def string) string {
-	if v := os.Getenv(k); v != "" {
+	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
 	return def
 }
 
-func mustMkdirAll(dir string) error {
-	if dir == "" {
-		return errors.New("empty dir")
+func mustMkdirAll(p string) {
+	_ = os.MkdirAll(p, 0o755)
+}
+
+func readAllStdin() ([]byte, error) {
+	var b bytes.Buffer
+	_, err := io.Copy(&b, os.Stdin)
+	return b.Bytes(), err
+}
+
+func jsonRawToString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
 	}
-	return os.MkdirAll(dir, 0o755)
-}
-
-// 清理 ANSI / 控制码：CSI、OSC、单字节 ESC 序列等
-var reANSI = regexp.MustCompile(`(?s)\x1B\[[0-9;?]*[ -/]*[@-~]|\x1B\][^\x07]*(\x07|\x1B\\)|\x1B[@-Z\\-_]`)
-
-// 额外剔除不可见控制字符（保留 \n \r \t）
-var reCtl = regexp.MustCompile(`[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]`)
-
-func cleanText(s string) string {
-	s = reANSI.ReplaceAllString(s, "")
-	s = reCtl.ReplaceAllString(s, "")
-	return s
-}
-
-func writeFileAtomic(path string, data []byte) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
-func nowStamp() string {
-	return time.Now().UTC().Format("20060102-150405Z")
-}
-
-// 从 stdin 读完整 JSON
-func readStdin() ([]byte, error) {
-	info, _ := os.Stdin.Stat()
-	if (info.Mode() & os.ModeCharDevice) != 0 {
-		return nil, errors.New("stdin is empty (no piped alert JSON)")
-	}
-	return io.ReadAll(bufio.NewReader(os.Stdin))
-}
-
-// 简单判断输出“看起来可用”
-func looksUsableJSON(s string) bool {
-	x := strings.ToLower(s)
-	return strings.Contains(x, `"root_cause"`) &&
-		strings.Contains(x, `"signals"`) &&
-		strings.Contains(x, `"sop_link"`)
-}
-
-// 从 logs 写三份：in-alert.json / stdout.json / stderr.json
-func writeRunLogs(logDir, prefix string, in []byte, out, err string) {
-	_ = mustMkdirAll(logDir)
-	_ = writeFileAtomic(filepath.Join(logDir, prefix+"-in-alert.json"), prettyJSON(in))
-	_ = writeFileAtomic(filepath.Join(logDir, prefix+"-stdout.json"), []byte(cleanText(out)))
-	_ = writeFileAtomic(filepath.Join(logDir, prefix+"-stderr.json"), []byte(cleanText(err)))
-}
-
-func prettyJSON(raw []byte) []byte {
-	var v any
-	if json.Unmarshal(raw, &v) == nil {
-		b, _ := json.MarshalIndent(v, "", "  ")
-		return b
-	}
-	return raw
-}
-
-// 构造 q 的输入（带 /context add 去重）
-func buildQInput(ctxFiles []string, alertJSON []byte) []byte {
-	var b strings.Builder
-
-	for _, p := range uniqStrings(ctxFiles) {
-		// 仅添加存在且非空的文件
-		if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
-			// 统一相对路径，避免 q 重复提示
-			pp := p
-			if rel, err := filepath.Rel(".", p); err == nil {
-				pp = "./" + filepath.ToSlash(rel)
-			}
-			b.WriteString(`/context add "` + pp + `"` + "\n")
+	// 尝试解析成任意类型再字符串化
+	var v interface{}
+	if err := json.Unmarshal(raw, &v); err == nil {
+		switch t := v.(type) {
+		case string:
+			return t
+		default:
+			b, _ := json.Marshal(v)
+			return string(b)
 		}
 	}
-	// 防止 TUI 彩色
+	// 退化：去掉首尾引号
+	s := string(raw)
+	return strings.Trim(s, "\"")
+}
+
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*[A-Za-z]`)
+var tuiPrefixRE = regexp.MustCompile(`(?m)^(>|!>|\s*\x1b\[0m)+\s*`)
+
+func cleanANSI(s string) string {
+	s = ansiRE.ReplaceAllString(s, "")
+	// 清理 TUI 前缀（如 "> ", "!> " 等）
+	s = tuiPrefixRE.ReplaceAllString(s, "")
+	// 常见杂质再清理一下
+	s = strings.ReplaceAll(s, "\u0000", "")
+	return strings.TrimSpace(s)
+}
+
+func normKey(a Alert) string {
+	// v2_svc_xxx_region_xxx_cat_xxx_sev_xxx
+	join := func(s string) string {
+		s = strings.TrimSpace(strings.ToLower(s))
+		s = strings.ReplaceAll(s, " ", "-")
+		s = strings.ReplaceAll(s, "/", "_")
+		return s
+	}
+	return fmt.Sprintf("v2_svc_%s_region_%s_cat_%s_sev_%s",
+		join(a.Service), join(a.Region), join(a.Category), join(a.Severity))
+}
+
+func ts() string { return time.Now().UTC().Format("20060102-150405Z") }
+
+// =========== SOP 预加载 ===========
+
+func parseSopJSONL(path string) ([]SopLine, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var out []SopLine
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		var one SopLine
+		if err := json.Unmarshal([]byte(line), &one); err != nil {
+			continue
+		}
+		out = append(out, one)
+	}
+	return out, sc.Err()
+}
+
+func collectSopLines(dir string) ([]SopLine, error) {
+	var merged []SopLine
+	walkFn := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".jsonl") {
+			lines, e := parseSopJSONL(path)
+			if e == nil {
+				merged = append(merged, lines...)
+			}
+		}
+		return nil
+	}
+	_ = filepath.WalkDir(dir, walkFn)
+	return merged, nil
+}
+
+func keyMatches(keys []string, a Alert) bool {
+	// 键控语法： svc:xxx  cat:cpu  sev:critical  svc:omada-*  sev:* 等
+	if len(keys) == 0 {
+		return false
+	}
+	matches := 0
+L:
+	for _, k := range keys {
+		k = strings.TrimSpace(strings.ToLower(k))
+		parts := strings.SplitN(k, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		field, patt := parts[0], parts[1]
+		val := ""
+		switch field {
+		case "svc", "service":
+			val = strings.ToLower(a.Service)
+		case "cat", "category":
+			val = strings.ToLower(a.Category)
+		case "sev", "severity":
+			val = strings.ToLower(a.Severity)
+		case "region":
+			val = strings.ToLower(a.Region)
+		default:
+			continue L
+		}
+		if wildcardMatch(patt, val) {
+			matches++
+			continue
+		}
+		// 任一键不匹配则整体不命中（AND 语义）
+		return false
+	}
+	return matches > 0
+}
+
+func wildcardMatch(patt, val string) bool {
+	// 简单 * 通配
+	if patt == "*" {
+		return true
+	}
+	if !strings.Contains(patt, "*") {
+		return patt == val
+	}
+	// 转正则
+	reStr := "^" + regexp.QuoteMeta(patt)
+	reStr = strings.ReplaceAll(reStr, "\\*", ".*") + "$"
+	re := regexp.MustCompile(reStr)
+	return re.MatchString(val)
+}
+
+func buildSopContext(a Alert, dir string) (string, error) {
+	if strings.TrimSpace(dir) == "" {
+		return "", nil
+	}
+	lines, err := collectSopLines(dir)
+	if err != nil || len(lines) == 0 {
+		return "", nil
+	}
+
+	// 过滤命中的 SOP，优先级排序
+	var hit []SopLine
+	for _, l := range lines {
+		if keyMatches(l.Keys, a) {
+			hit = append(hit, l)
+		}
+	}
+	if len(hit) == 0 {
+		return "", nil
+	}
+	sort.SliceStable(hit, func(i, j int) bool {
+		pi := strings.ToUpper(hit[i].Priority)
+		pj := strings.ToUpper(hit[j].Priority)
+		// HIGH > MIDDLE > LOW
+		order := map[string]int{"HIGH": 0, "MIDDLE": 1, "LOW": 2}
+		return order[pi] < order[pj]
+	})
+
+	// 拼接（截断控制）
+	var b strings.Builder
+	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
+	seen := map[string]bool{}
+	appendList := func(prefix string, arr []string, limit int) {
+		cnt := 0
+		for _, x := range arr {
+			x = strings.TrimSpace(x)
+			if x == "" {
+				continue
+			}
+			key := prefix + "::" + x
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			b.WriteString("- " + prefix + ": " + x + "\n")
+			cnt++
+			if limit > 0 && cnt >= limit {
+				break
+			}
+		}
+	}
+
+	for _, l := range hit {
+		if strings.TrimSpace(l.Title) != "" {
+			b.WriteString("#### " + l.Title + "\n")
+		}
+		appendList("Precheck", l.Prechecks, 5)
+		appendList("Action", l.Actions, 8)
+		if strings.TrimSpace(l.Notes) != "" {
+			b.WriteString("- Note: " + l.Notes + "\n")
+		}
+	}
+	return b.String(), nil
+}
+
+// =========== 历史上下文加载 ===========
+
+type ContextEntry struct {
+	Path      string    `json:"path"`
+	Timestamp time.Time `json:"ts"`
+	Preview   string    `json:"preview"`
+	Quality   float64   `json:"quality,omitempty"`
+}
+
+func loadHistoricalContexts(ctxDir, key string, maxCount int) ([]ContextEntry, error) {
+	keyDir := filepath.Join(ctxDir, key)
+	if _, err := os.Stat(keyDir); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	var entries []ContextEntry
+
+	// 读取 index.jsonl 获取历史记录
+	indexPath := filepath.Join(keyDir, "index.jsonl")
+	if b, err := os.ReadFile(indexPath); err == nil {
+		scanner := bufio.NewScanner(strings.NewReader(string(b)))
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
+			var entry ContextEntry
+			if err := json.Unmarshal([]byte(line), &entry); err == nil {
+				// 验证文件是否还存在
+				if _, err := os.Stat(entry.Path); err == nil {
+					entries = append(entries, entry)
+				}
+			}
+		}
+	}
+
+	// 按时间戳排序（最新的在前）
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Timestamp.After(entries[j].Timestamp)
+	})
+
+	// 限制数量
+	if len(entries) > maxCount {
+		entries = entries[:maxCount]
+	}
+
+	return entries, nil
+}
+
+func buildHistoricalContext(entries []ContextEntry) string {
+	if len(entries) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString("### [HISTORICAL] Similar alerts context\n")
+
+	for i, entry := range entries {
+		if i >= 3 { // 最多显示3条历史记录
+			break
+		}
+		b.WriteString(fmt.Sprintf("#### Historical case #%d (%s)\n", i+1, entry.Timestamp.Format("2006-01-02 15:04")))
+		if entry.Preview != "" {
+			b.WriteString(entry.Preview + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	return b.String()
+}
+
+// =========== fallback ctx 读取 ===========
+
+func readFallbackCtx(path string) string {
+	p := strings.TrimSpace(path)
+	if p == "" {
+		return ""
+	}
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// =========== q 进程执行 ===========
+
+func runQ(ctx context.Context, qbin string, prompt string) (string, string, int, error) {
+	if strings.TrimSpace(qbin) == "" {
+		return "", "", -1, errors.New("Q_BIN 未设置")
+	}
+	cmd := exec.CommandContext(ctx, qbin) // 具体参数按你现场 CLI 风格自行调整
+	// 传环境以抑制色彩
+	cmd.Env = append(os.Environ(),
+		"NO_COLOR=1", "CLICOLOR=0", "TERM=dumb",
+	)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return "", "", -1, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return "", "", -1, err
+	}
+
+	// 把 prompt 全量喂给 q
+	_, _ = io.WriteString(stdin, prompt)
+	_ = stdin.Close()
+
+	err = cmd.Wait()
+	exit := 0
+	if ee, ok := err.(*exec.ExitError); ok {
+		exit = ee.ExitCode()
+	} else if err != nil {
+		exit = -1
+	}
+	return stdout.String(), stderr.String(), exit, err
+}
+
+// =========== 可复用 ctx 落盘 & 调试日志写入 ===========
+
+func writeDebugLogs(logDir, key string, stdout, stderr string, meta map[string]any) (string, string) {
+	mustMkdirAll(logDir)
+	tsz := ts()
+	makePath := func(kind string) string {
+		return filepath.Join(logDir, fmt.Sprintf("%s_%s_%s.jsonl", tsz, key, kind))
+	}
+
+	// 简单以 JSONL 记录
+	write := func(path string, kind string, content string) string {
+		entry := map[string]any{
+			"ts":        time.Now().UTC().Format(time.RFC3339),
+			"signature": key,
+			"kind":      kind,
+			"content":   content,
+		}
+		for k, v := range meta {
+			entry[k] = v
+		}
+		b, _ := json.Marshal(entry)
+		_ = os.WriteFile(path, append(b, '\n'), 0o644)
+		return path
+	}
+
+	stdoutPath := makePath("stdout")
+	stderrPath := makePath("stderr")
+	write(stdoutPath, "stdout", stdout)
+	write(stderrPath, "stderr", stderr)
+	return stdoutPath, stderrPath
+}
+
+func usableHeuristic(exit int, stderrClean string) bool {
+	if exit != 0 {
+		return false
+	}
+	// 粗略判定：stderr 不包含明显 error
+	low := strings.ToLower(stderrClean)
+	if strings.Contains(low, "error") || strings.Contains(low, "panic") {
+		return false
+	}
+	return true
+}
+
+func persistReusableCtx(ctxDir string, key string, payload string, maxEntries int) (string, error) {
+	if strings.TrimSpace(payload) == "" {
+		return "", errors.New("empty payload")
+	}
+	root := filepath.Join(ctxDir, key, ts())
+	mustMkdirAll(root)
+	dst := filepath.Join(root, "ctx_final.txt")
+	if err := os.WriteFile(dst, []byte(payload), 0o644); err != nil {
+		return "", err
+	}
+
+	// 建立 latest 软链（容错：Windows/某些FS不支持就忽略）
+	latest := filepath.Join(ctxDir, key, "latest")
+	_ = os.RemoveAll(latest)
+	_ = os.Symlink(root, latest)
+
+	// 再写一个合并索引（供人肉查看）
+	index := filepath.Join(ctxDir, key, "index.jsonl")
+	entry := map[string]any{
+		"ts":      time.Now().UTC().Format(time.RFC3339),
+		"path":    dst,
+		"preview": firstN(payload, 200),
+		"quality": calculateQualityScore(payload),
+	}
+	b, _ := json.Marshal(entry)
+	_ = appendFile(index, append(b, '\n'))
+
+	// 清理旧记录，保持数量限制
+	cleanupOldEntries(ctxDir, key, maxEntries)
+
+	return dst, nil
+}
+
+func calculateQualityScore(payload string) float64 {
+	// 简单的质量评分：基于内容长度、结构化程度等
+	score := 0.5 // 基础分
+
+	// 长度奖励（适中的长度更好）
+	length := len(payload)
+	if length > 100 && length < 2000 {
+		score += 0.2
+	}
+
+	// 结构化内容奖励
+	if strings.Contains(payload, "root_cause") {
+		score += 0.1
+	}
+	if strings.Contains(payload, "signals") {
+		score += 0.1
+	}
+	if strings.Contains(payload, "confidence") {
+		score += 0.1
+	}
+
+	// 限制在 0-1 之间
+	if score > 1.0 {
+		score = 1.0
+	}
+	return score
+}
+
+func cleanupOldEntries(ctxDir, key string, maxEntries int) {
+	keyDir := filepath.Join(ctxDir, key)
+	indexPath := filepath.Join(keyDir, "index.jsonl")
+
+	// 读取所有条目
+	var entries []ContextEntry
+	if b, err := os.ReadFile(indexPath); err == nil {
+		scanner := bufio.NewScanner(strings.NewReader(string(b)))
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
+			var entry ContextEntry
+			if err := json.Unmarshal([]byte(line), &entry); err == nil {
+				entries = append(entries, entry)
+			}
+		}
+	}
+
+	// 如果条目数量超过限制，删除最旧的
+	if len(entries) > maxEntries {
+		// 按时间戳排序（最新的在前）
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].Timestamp.After(entries[j].Timestamp)
+		})
+
+		// 删除超出的条目
+		toDelete := entries[maxEntries:]
+		for _, entry := range toDelete {
+			// 删除文件
+			_ = os.Remove(entry.Path)
+			// 删除目录（如果为空）
+			dir := filepath.Dir(entry.Path)
+			if files, err := os.ReadDir(dir); err == nil && len(files) == 0 {
+				_ = os.Remove(dir)
+			}
+		}
+
+		// 重写索引文件
+		var newEntries []ContextEntry
+		for i := 0; i < maxEntries && i < len(entries); i++ {
+			// 验证文件是否还存在
+			if _, err := os.Stat(entries[i].Path); err == nil {
+				newEntries = append(newEntries, entries[i])
+			}
+		}
+
+		// 写入新的索引
+		var lines []string
+		for _, entry := range newEntries {
+			b, _ := json.Marshal(entry)
+			lines = append(lines, string(b))
+		}
+		_ = os.WriteFile(indexPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+	}
+}
+
+func appendFile(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(data)
+	return err
+}
+
+func firstN(s string, n int) string {
+	rs := []rune(s)
+	if len(rs) <= n {
+		return s
+	}
+	return string(rs[:n]) + "..."
+}
+
+// =========== Prompt 构造 ===========
+
+func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
+	var b strings.Builder
 	b.WriteString("/tools trust-all\n")
+	if strings.TrimSpace(sop) != "" {
+		b.WriteString("\n# --- PREPEND SOP CONTEXT ---\n")
+		b.WriteString(sop)
+		b.WriteString("\n# --- END SOP ---\n")
+	}
+	if strings.TrimSpace(historical) != "" {
+		b.WriteString("\n# --- HISTORICAL CONTEXT ---\n")
+		b.WriteString(historical)
+		b.WriteString("\n# --- END HISTORICAL ---\n")
+	}
+	if strings.TrimSpace(fallback) != "" {
+		b.WriteString("\n# --- FALLBACK CTX ---\n")
+		b.WriteString(fallback)
+		b.WriteString("\n# --- END FALLBACK ---\n")
+	}
 	b.WriteString("\n[USER]\n")
 	b.WriteString("你是我的AIOps只读归因助手。严格禁止任何写操作（伸缩/重启/删除/修改配置/触发Job 等）。\n")
 	b.WriteString("任务：\n - 只读查询与报警强相关的指标/日志（CloudWatch、VictoriaMetrics、K8s 描述等）。\n - 输出 JSON：{root_cause, signals[], confidence, next_checks[], sop_link}。\n\n")
 	b.WriteString("【Normalized Alert】\n")
-	b.Write(cleanPrettyJSON(alertJSON)) // 注意：这里是 []byte（已修复）
-	b.WriteString("\n\n[/USER]\n\n/quit\n")
-	return []byte(b.String())
+	b.WriteString(userJSON)
+	b.WriteString("\n[/USER]\n\n/quit\n")
+	return b.String()
 }
 
-func uniqStrings(in []string) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if _, ok := seen[s]; ok {
-			continue
-		}
-		seen[s] = struct{}{}
-		out = append(out, s)
-	}
-	return out
-}
-
-// 将 alert JSON 清理美化（作为文本片段）
-func cleanPrettyJSON(raw []byte) []byte {
-	pretty := prettyJSON(raw)
-	return []byte(cleanText(string(pretty)))
-}
-
-/***************
- * Context 选择/保存
- ***************/
-
-// 根据 alert 选择可能的上下文文件（先精确签名，再回退 service+category）
-func pickReusableContexts(ctxDir string, a Alert) []string {
-	var picks []string
-
-	// 1) 精确签名
-	sig := a.Signature()
-	glob1 := filepath.Join(ctxDir, "auto", "final", safeName(sig)+"*.ctx")
-	files1, _ := filepath.Glob(glob1)
-	picks = append(picks, files1...)
-
-	// 2) 回退 service+category
-	if a.Service != "" && a.Category != "" {
-		glob2 := filepath.Join(ctxDir, "auto", "pool", safeName(a.Service)+"_"+safeName(a.Category)+"*.ctx")
-		files2, _ := filepath.Glob(glob2)
-		picks = append(picks, files2...)
-	}
-	// 3) 手工放的通用上下文
-	userGlob := filepath.Join(ctxDir, "*.md")
-	userMd, _ := filepath.Glob(userGlob)
-	picks = append(picks, userMd...)
-
-	return picks
-}
-
-var reSafe = regexp.MustCompile(`[^a-zA-Z0-9_.-]+`)
-
-func safeName(s string) string {
-	s = strings.TrimSpace(s)
-	s = reSafe.ReplaceAllString(s, "_")
-	return strings.Trim(s, "_")
-}
-
-// 保存“可用”的归因上下文（供下次复用）
-func saveUsableContext(ctxDir string, a Alert, qIn []byte, qOutClean string) {
-	base := filepath.Join(ctxDir, "auto", "final")
-	_ = mustMkdirAll(base)
-	name := fmt.Sprintf("%s_%s.ctx", nowStamp(), safeName(a.Signature()))
-	path := filepath.Join(base, name)
-
-	// 归档：我们把这次发送给 q 的“用户侧上下文”（含 /context add + Alert块）以及
-	// q 的“清洗后的最终输出”一起写入，便于复用/回放。
-	var buf strings.Builder
-	buf.WriteString("# q input\n\n")
-	buf.Write(qIn)
-	buf.WriteString("\n\n# q output (clean)\n\n")
-	buf.WriteString(qOutClean)
-	_ = writeFileAtomic(path, []byte(buf.String()))
-}
-
-/***************
- * q 进程调用
- ***************/
-
-type qResult struct {
-	Out string
-	Err string
-}
-
-func runQ(qbin, workdir string, input []byte) (qResult, error) {
-	cmd := exec.Command(qbin)
-	cmd.Dir = workdir
-	// 强制无彩色
-	cmd.Env = append(os.Environ(),
-		"NO_COLOR=1", "CLICOLOR=0", "TERM=dumb",
-	)
-
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return qResult{}, err
-	}
-	var outBuf, errBuf bytes.Buffer
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-
-	if err := cmd.Start(); err != nil {
-		return qResult{}, err
-	}
-
-	// ✅ 这里写入的是 []byte（修复你之前遇到的 string -> []byte 报错）
-	if _, err := stdin.Write(input); err != nil {
-		_ = stdin.Close()
-		return qResult{}, err
-	}
-	_ = stdin.Close()
-
-	waitErr := cmd.Wait()
-	return qResult{
-		Out: outBuf.String(),
-		Err: errBuf.String(),
-	}, waitErr
-}
-
-/***************
- * main
- ***************/
+// =========== 主流程 ===========
 
 func main() {
+	// 目录 & 环境
 	workdir := getenv("QWORKDIR", ".")
-	ctxDir := getenv("QCTX_DIR", "./ctx")
-	dataDir := getenv("QDATA_DIR", "./data")
-	logDir := getenv("QLOG_DIR", "./logs")
-	qbin := getenv("Q_BIN", "q")
+	logDir := getenv("QLOG_DIR", filepath.Join(workdir, "logs"))
+	ctxDir := getenv("QCTX_DIR", filepath.Join(workdir, "ctx", "final"))
+	qbin := getenv("Q_BIN", "")
+	sopDir := getenv("Q_SOP_DIR", filepath.Join(workdir, "ctx", "sop"))
+	sopPrepend := getenv("Q_SOP_PREPEND", "1") == "1"
+	fallbackPath := getenv("Q_FALLBACK_CTX", "")
 
-	// 确保目录存在
-	_ = mustMkdirAll(workdir)
-	_ = mustMkdirAll(ctxDir)
-	_ = mustMkdirAll(filepath.Join(ctxDir, "auto", "final"))
-	_ = mustMkdirAll(filepath.Join(ctxDir, "auto", "pool"))
-	_ = mustMkdirAll(dataDir)
-	_ = mustMkdirAll(logDir)
+	mustMkdirAll(logDir)
+	mustMkdirAll(ctxDir)
 
-	// 读 Alert
-	raw, err := readStdin()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "加载告警失败: %v\n", err)
+	// 读取告警 JSON（stdin）
+	raw, err := readAllStdin()
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		fmt.Fprintln(os.Stderr, "解析告警JSON失败: unexpected end of JSON input")
 		os.Exit(2)
 	}
-
-	// 解析 Alert（兼容 threshold 数字/字符串）
 	var alert Alert
 	if err := json.Unmarshal(raw, &alert); err != nil {
-		fmt.Fprintf(os.Stderr, "解析告警JSON失败: %v\n", err)
+		fmt.Fprintln(os.Stderr, "解析告警JSON失败:", err)
 		os.Exit(2)
 	}
 
-	// 选择可复用 context
-	ctxFiles := pickReusableContexts(ctxDir, alert)
+	// 阈值归一化成字符串
+	thStr := jsonRawToString(alert.Threshold)
+	// 备份：把原始 alert + 阈值字符串化输出，便于 prompt 使用
+	alertMap := map[string]any{}
+	_ = json.Unmarshal(raw, &alertMap)
+	if thStr != "" {
+		alertMap["threshold"] = thStr
+	}
+	userJSONBytes, _ := json.MarshalIndent(alertMap, "", "  ")
+	userJSON := string(userJSONBytes)
 
-	// 构建 q 输入（避免重复 /context add，且采用清洗 + pretty 的 Alert JSON）
-	qInput := buildQInput(ctxFiles, raw)
+	// 规范化 key（用于日志/落盘）
+	key := normKey(alert)
 
-	// 跑 q
-	res, runErr := runQ(qbin, workdir, qInput)
-
-	// 清洗输出
-	cleanOut := cleanText(res.Out)
-	cleanErr := cleanText(res.Err)
-
-	stamp := nowStamp()
-	prefix := fmt.Sprintf("%s_%s", stamp, safeName(alert.Signature()))
-
-	// 落盘日志（入参、清洗后的 stdout/stderr）
-	writeRunLogs(logDir, prefix, raw, cleanOut, cleanErr)
-
-	// 判断结果是否“可用”，可用则把这次上下文归档进 ctx/auto/final/
-	if looksUsableJSON(cleanOut) && runErr == nil {
-		saveUsableContext(ctxDir, alert, qInput, cleanOut)
+	// 预加载 SOP + 历史上下文 + fallback
+	var sopText string
+	if sopPrepend {
+		sopText, _ = buildSopContext(alert, sopDir)
 	}
 
-	// 把清洗后的 stdout 原样打印到控制台（方便管道继续处理）
-	// 若你希望只打印 JSON，可在此处做 JSON 提取；这里保持保守策略：给出干净文本。
-	if _, err := os.Stdout.Write([]byte(cleanOut)); err != nil {
-		// 忽略打印错误
-	}
+	// 加载历史上下文（最多5条记录）
+	historicalEntries, _ := loadHistoricalContexts(ctxDir, key, 5)
+	historicalText := buildHistoricalContext(historicalEntries)
 
-	// 若 q 进程本身报错，用清洗后的 stderr 提示并返回非零
-	if runErr != nil {
-		// 某些情况下 q 会返回 0 但 stderr 有噪音，这里只在 Wait 失败时才视为错误
-		fmt.Fprintf(os.Stderr, "q 运行错误: %v\n", runErr)
-		if cleanErr != "" {
-			fmt.Fprintf(os.Stderr, "%s\n", cleanErr)
+	fallbackText := readFallbackCtx(fallbackPath)
+
+	// 组装 prompt
+	prompt := buildPrompt(alert, sopText, historicalText, fallbackText, userJSON)
+
+	// 调用 q
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	stdout, stderr, exitCode, runErr := runQ(ctx, qbin, prompt)
+
+	// 清洗 ANSI / 控制符
+	stdoutClean := cleanANSI(stdout)
+	stderrClean := cleanANSI(stderr)
+
+	// 日志落盘（调试）
+	meta := map[string]any{
+		"usable":    runErr == nil && usableHeuristic(exitCode, stderrClean),
+		"run_err":   fmt.Sprint(runErr),
+		"exit_code": exitCode,
+		"stdin_len": len(prompt),
+	}
+	_, _ = writeDebugLogs(logDir, key, stdoutClean, stderrClean, meta)
+
+	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP+fallback 选择 + 模型返回"整合为可复用知识）
+	if runErr == nil && usableHeuristic(exitCode, stderrClean) {
+		reusable := composeReusableContext(alert, sopText, fallbackText, stdoutClean)
+		// 每个告警类型最多保留10条记录
+		if _, err := persistReusableCtx(ctxDir, key, reusable, 10); err != nil {
+			// 不致命
 		}
-		os.Exit(1)
 	}
+
+	// 终端输出 q 的 clean 后结果（方便上层 JSON 抽取）
+	fmt.Println(stdoutClean)
+
+	// 退出码透传（非0便于 systemd 判定失败）
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+}
+
+// 把当前报警 + 前置知识 + 返回内容 拼为可复用文本
+func composeReusableContext(a Alert, sop, fallback, modelOut string) string {
+	var b strings.Builder
+	b.WriteString("### AIOps reusable context\n")
+	b.WriteString("- service: " + a.Service + "\n")
+	b.WriteString("- region: " + a.Region + "\n")
+	b.WriteString("- category: " + a.Category + "\n")
+	b.WriteString("- severity: " + a.Severity + "\n")
+	if a.Title != "" {
+		b.WriteString("- title: " + a.Title + "\n")
+	}
+	if a.Path != "" {
+		b.WriteString("- path: " + a.Path + "\n")
+	}
+	if a.Method != "" {
+		b.WriteString("- method: " + a.Method + "\n")
+	}
+	if a.Duration != "" {
+		b.WriteString("- duration: " + a.Duration + "\n")
+	}
+	if a.Window != "" {
+		b.WriteString("- window: " + a.Window + "\n")
+	}
+	if s := jsonRawToString(a.Threshold); s != "" {
+		b.WriteString("- threshold: " + s + "\n")
+	}
+	b.WriteString("\n")
+	if strings.TrimSpace(sop) != "" {
+		b.WriteString("#### SOP (selected)\n")
+		b.WriteString(sop + "\n")
+	}
+	if strings.TrimSpace(fallback) != "" {
+		b.WriteString("#### Fallback\n")
+		b.WriteString(fallback + "\n")
+	}
+	b.WriteString("#### Model Output (cleaned)\n")
+	b.WriteString(modelOut + "\n")
+	return b.String()
 }

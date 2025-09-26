@@ -1,0 +1,32 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "vms-event-frontend",
+  "category": "memory",
+  "severity": "tel",
+  "title": "vms-event-frontend container memory usage upper 0.95",
+  "group_id": "vms-event-frontend_tel",
+  "window": "5m",
+  "duration": "6m",
+  "threshold": 0.95,
+  "metadata": {
+    "alert_name": "vms-event-frontend container memory usage upper 0.95",
+    "alertgroup": "vms-event-frontend",
+    "alertname": "vms-event-frontend container memory usage upper 0.95",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "vms-event-frontend",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Enterprise Software (CD)|Cloud (CD)|VIGI]",
+    "duration": "120s",
+    "expression": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"vms-event-frontend.*\", namespace=~\"vms\"}) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"vms-event-frontend.*\", namespace=~\"vms\", resource=\"memory\"} > 0) by (pod, container)>0.95",
+    "group_id": "vms-event-frontend_tel",
+    "pod": "vms-event-frontend-2.1.421-56bd585f6-g2dcg",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "vms-event-frontend",
+    "severity": "tel",
+    "threshold_value": 0.95,
+    "current_value": 0.9506254196166992
+  }
+}

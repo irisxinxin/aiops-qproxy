@@ -1,0 +1,15 @@
+{
+  "status":"resolved",
+  "env":"prd",
+  "region":"dev-nbu-aps1",
+  "service":"omada-essential",
+  "category":"cpu",
+  "severity":"critical",
+  "title":"omada essential cpu usage rate is too high",
+  "group_id":"omada-essential_critical",
+  "claimedBy":null,
+  "metadata":{
+    "alertname":"omada essential cpu usage rate is too high",
+    "raw_title":"[resolved][dev-nbu-aps1]omada essential cpu usage rate is too high"
+  }
+}

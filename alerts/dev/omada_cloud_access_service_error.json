@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "omada-cloud-access",
+  "category": "error",
+  "severity": "critical",
+  "title": "omada cloud access too many service internal error",
+  "group_id": "omada-cloud-access_critical",
+  "method": "POST",
+  "path": "/api/v2/startLaunch",
+  "window": "5m",
+  "duration": "8m",
+  "threshold": 2.0,
+  "metadata": {
+    "alert_name": "omada cloud access too many service internal error",
+    "alertgroup": "omada-cloud-access",
+    "alertname": "omada cloud access too many service internal error",
+    "auto_create_group": false,
+    "comparison": ">",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Networking Solutions|Network Services]",
+    "duration": "1s",
+    "expression": "sum(increase(omada_cloud_server_error_total{namespace=\"omada-central\",application=\"omada-cloud-access\",method!=\"passThroughForBizCloud\"}[5m])) >2.0",
+    "group_id": "omada-cloud-access_critical",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "omada-cloud-access",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 2.0,
+    "current_value": 5
+  }
+}

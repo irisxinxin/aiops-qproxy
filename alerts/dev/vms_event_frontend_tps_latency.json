@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "vms-event-frontend",
+  "category": "latency",
+  "severity": "tel",
+  "title": "vms-event-frontend TPS and latency too high",
+  "group_id": "vms-event-frontend_tel",
+  "window": "5m",
+  "duration": "6m",
+  "threshold": 1000,
+  "metadata": {
+    "alert_name": "vms-event-frontend TPS and latency too high",
+    "alertgroup": "vms-event-frontend",
+    "alertname": "vms-event-frontend TPS and latency too high",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "vms-event-frontend",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Enterprise Software (CD)|Cloud (CD)|VIGI]",
+    "duration": "300s",
+    "expression": "sum(rate(vms_event_frontend_requests_total{namespace=\"vms\"}[5m])) > 1000",
+    "group_id": "vms-event-frontend_tel",
+    "pod": "vms-event-frontend-2.1.421-56bd585f6-g2dcg",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "vms-event-frontend",
+    "severity": "tel",
+    "tel_up": "30m",
+    "threshold_value": 1000,
+    "current_value": 1200
+  }
+}

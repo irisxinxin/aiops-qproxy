@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "vms-ai-manager",
+  "category": "memory",
+  "severity": "critical",
+  "title": "vms-ai-manager container memory usage upper 0.95",
+  "group_id": "vms-ai-manager_critical",
+  "window": "5m",
+  "duration": "10m",
+  "threshold": 0.95,
+  "metadata": {
+    "alert_name": "vms-ai-manager container memory usage upper 0.95",
+    "alertgroup": "vms-ai-manager",
+    "alertname": "vms-ai-manager container memory usage upper 0.95",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "vms-ai-manager",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Enterprise Software (CD)|Cloud (CD)|VIGI]",
+    "duration": "300s",
+    "expression": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"vms-ai-manager.*\", namespace=~\"vms\"}) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"vms-ai-manager.*\", namespace=~\"vms\", resource=\"memory\"} > 0) by (pod, container)>0.95",
+    "group_id": "vms-ai-manager_critical",
+    "pod": "vms-ai-manager-2.1.421-56bd585f6-g2dcg",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "vms-ai-manager",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 0.95,
+    "current_value": 0.96
+  }
+}

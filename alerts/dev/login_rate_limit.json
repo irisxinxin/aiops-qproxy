@@ -1,0 +1,15 @@
+{
+  "status":"firing",
+  "env":"prd",
+  "region":"dev-nbu-aps1",
+  "service":"omada-iam",
+  "category":"login_rate_limit",
+  "severity":"warning",
+  "title":"omada iam login rate limit times surged",
+  "metadata":{
+    "metric":"omada_iam_login_rate_limit_times_total",
+    "window":"5m",
+    "comparison":">",
+    "threshold_value":10
+  }
+}

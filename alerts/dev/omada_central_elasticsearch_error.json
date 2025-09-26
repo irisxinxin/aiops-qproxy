@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "omada-central",
+  "category": "elasticsearch",
+  "severity": "critical",
+  "title": "omada-central elasticsearch connection error",
+  "group_id": "omada-central_critical",
+  "window": "5m",
+  "duration": "10m",
+  "threshold": 5,
+  "metadata": {
+    "alert_name": "omada-central elasticsearch connection error",
+    "alertgroup": "omada-central",
+    "alertname": "omada-central elasticsearch connection error",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "omada-central",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Networking Solutions|Network Services]",
+    "duration": "300s",
+    "expression": "sum(increase(omada_central_elasticsearch_errors_total{namespace=\"sdn5\"}[5m])) > 5",
+    "group_id": "omada-central_critical",
+    "pod": "omada-central-5.15.16041-56f89cbc98-vxbzh",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "omada-central",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 5,
+    "current_value": 8
+  }
+}

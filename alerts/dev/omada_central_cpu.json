@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "omada-central",
+  "category": "cpu",
+  "severity": "critical",
+  "title": "omada-central container CPU usage is too high",
+  "group_id": "omada-central_critical",
+  "window": "5m",
+  "duration": "15m",
+  "threshold": 0.9,
+  "metadata": {
+    "alert_name": "omada-central container CPU usage is too high",
+    "alertgroup": "omada-central",
+    "alertname": "omada-central container CPU usage is too high",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "omada-central",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Networking Solutions|Network Services]",
+    "duration": "300s",
+    "expression": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)>0.9",
+    "group_id": "omada-central_critical",
+    "pod": "omada-central-5.15.16041-56f89cbc98-vxbzh",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "omada-central",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 0.9,
+    "current_value": 0.92
+  }
+}

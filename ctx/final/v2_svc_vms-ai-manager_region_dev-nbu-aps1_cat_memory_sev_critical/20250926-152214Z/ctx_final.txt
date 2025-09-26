@@ -1,0 +1,307 @@
+### AIOps reusable context
+- service: vms-ai-manager
+- region: dev-nbu-aps1
+- category: memory
+- severity: critical
+- title: vms-ai-manager container memory usage upper 0.95
+- duration: 10m
+- window: 5m
+- threshold: 0.95
+
+#### SOP (selected)
+### [SOP] Preloaded knowledge (high priority)
+#### LIMITED-52
+- Action: 014The number of attempts for 
+account activation and/or 
+password reset emails is up 
+to limit.
+- Action: Please try again after
+#### FAILED-55
+- Action: 007Query billing info failed.
+- Action: 查询
+billing 
+info 失
+败Query billing info 
+failed.
+- Action: PAYMENT_UNKNOWN_
+#### TION-80
+- Action: 215Some organizations have 
+already been invited.
+- Action: Please 
+only select organizations that 
+have not been invited.修改用
+户组织
+时组织
+重复下
+发
+LIST_GLOBAL_USER_O
+RGANIZATION_FAILED-80
+216List user's organizations 
+failed.查询用
+户组织
+失败
+USER_OPERATE_ALL_F
+#### AILED-80
+- Action: 217The operation was failed.
+- Action: 操作全
+部失败The operation was 
+failed.
+- Action: USER_OPERATE_NOT_
+#### ILED-82
+- Action: 301Failed to get last 
+access failed.
+- Action: CREATE_ORG_REACH_
+#### HILD-84
+- Precheck: After 
+deleted, all its sub-users will 
+be transferred to the current 
+operating user.提示用
+户是否
+确认需
+要删除
+该目标
+用户，
+如果删
+除，目
+标用户
+的所有
+子用户
+会全部
+转到当
+前操作
+用户名
+下Delete {Username}?
+- Action: 006Delete {Username}?
+- Action: After deleted, all its 
+sub-users will be 
+transferred to the 
+current operating 
+user.
+- Action: INVALID_SITE_PERMIS
+SION_IN_OPERATION_
+#### HIVED-10
+- Action: 203Order archived .
+- Action: No further 
+operation can be executed on 
+this order.Order archived, no 
+further operation 
+should be executed 
+on this order.
+- Action: PAYMENT_ORDER_CRE
+ATION_FAILED-10
+204Order creation failed.
+- Action: Order creation failed
+PAYMENT_ORDER_CH
+ARGE_FAILED-10
+205Failed to confirm this order.
+- Action: Charge for order 
+failed
+PAYMENT_PRODUCT_
+NOT_FOUND_FOR_SER
+#### ONSUMED-10
+- Action: 501The coupon has been used.
+- Action: Coupon has been 
+used
+PAYMENT_COUPON_E
+#### 9 https://pdgerrit.tp-link.com/admin/repos/CDD/solution/devops_cicd
+- Precheck: •
+•
+•Check Service Dashboard
+If the heap memory is too high:  Dump memory, and analyze it by MAT (Memory Analyzer Tool) .
+- Action: Troubleshooting Guide  – 9•
+•
+•
+•
+1.
+- Action: 2.
+- Action: Some scenarios may cause the service to fail, such as no-heap memory exceptions
+Please proceed with the confirmation of CN SRE Team
+If Just container memory too high: Contact R&D, replicate in the test environment, and perform out-of-
+heap memory analysis
+#### 12 https://kibana.tplinknbu.com/s/cdd_cloud_service/app/discover#/?_g=(filters:!(),refreshInterval:(pause:!t,value:0),ti
+- Action: (from:now%2Fd,to:now%2Fd))&_a=(columns:!(message,kubernetes.labels.region),filters:!((%27$state%27:(store:appState),meta:(alias:!
+- Action: n,disabled:!f,index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,key:target,negate:!f,params:(query:mongo),type:phrase),query:
+(match_phrase:(target:mongo)))),index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,interval:auto,query:(language:kuery,query:
+%27%27),sort:!())
+Troubleshooting Guide  – 101.
+
+#### Model Output (cleaned)
+/tools trust-all
+
+# --- PREPEND SOP CONTEXT ---
+### [SOP] Preloaded knowledge (high priority)
+#### LIMITED-52
+- Action: 014The number of attempts for 
+account activation and/or 
+password reset emails is up 
+to limit.
+- Action: Please try again after
+#### FAILED-55
+- Action: 007Query billing info failed.
+- Action: 查询
+billing 
+info 失
+败Query billing info 
+failed.
+- Action: PAYMENT_UNKNOWN_
+#### TION-80
+- Action: 215Some organizations have 
+already been invited.
+- Action: Please 
+only select organizations that 
+have not been invited.修改用
+户组织
+时组织
+重复下
+发
+LIST_GLOBAL_USER_O
+RGANIZATION_FAILED-80
+216List user's organizations 
+failed.查询用
+户组织
+失败
+USER_OPERATE_ALL_F
+#### AILED-80
+- Action: 217The operation was failed.
+- Action: 操作全
+部失败The operation was 
+failed.
+- Action: USER_OPERATE_NOT_
+#### ILED-82
+- Action: 301Failed to get last 
+access failed.
+- Action: CREATE_ORG_REACH_
+#### HILD-84
+- Precheck: After 
+deleted, all its sub-users will 
+be transferred to the current 
+operating user.提示用
+户是否
+确认需
+要删除
+该目标
+用户，
+如果删
+除，目
+标用户
+的所有
+子用户
+会全部
+转到当
+前操作
+用户名
+下Delete {Username}?
+- Action: 006Delete {Username}?
+- Action: After deleted, all its 
+sub-users will be 
+transferred to the 
+current operating 
+user.
+- Action: INVALID_SITE_PERMIS
+SION_IN_OPERATION_
+#### HIVED-10
+- Action: 203Order archived .
+- Action: No further 
+operation can be executed on 
+this order.Order archived, no 
+further operation 
+should be executed 
+on this order.
+- Action: PAYMENT_ORDER_CRE
+ATION_FAILED-10
+204Order creation failed.
+- Action: Order creation failed
+PAYMENT_ORDER_CH
+ARGE_FAILED-10
+205Failed to confirm this order.
+- Action: Charge for order 
+failed
+PAYMENT_PRODUCT_
+NOT_FOUND_FOR_SER
+#### ONSUMED-10
+- Action: 501The coupon has been used.
+- Action: Coupon has been 
+used
+PAYMENT_COUPON_E
+#### 9 https://pdgerrit.tp-link.com/admin/repos/CDD/solution/devops_cicd
+- Precheck: •
+•
+•Check Service Dashboard
+If the heap memory is too high:  Dump memory, and analyze it by MAT (Memory Analyzer Tool) .
+- Action: Troubleshooting Guide  – 9•
+•
+•
+•
+1.
+- Action: 2.
+- Action: Some scenarios may cause the service to fail, such as no-heap memory exceptions
+Please proceed with the confirmation of CN SRE Team
+If Just container memory too high: Contact R&D, replicate in the test environment, and perform out-of-
+heap memory analysis
+#### 12 https://kibana.tplinknbu.com/s/cdd_cloud_service/app/discover#/?_g=(filters:!(),refreshInterval:(pause:!t,value:0),ti
+- Action: (from:now%2Fd,to:now%2Fd))&_a=(columns:!(message,kubernetes.labels.region),filters:!((%27$state%27:(store:appState),meta:(alias:!
+- Action: n,disabled:!f,index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,key:target,negate:!f,params:(query:mongo),type:phrase),query:
+(match_phrase:(target:mongo)))),index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,interval:auto,query:(language:kuery,query:
+%27%27),sort:!())
+Troubleshooting Guide  – 101.
+
+# --- END SOP ---
+
+# --- HISTORICAL CONTEXT ---
+### [HISTORICAL] Similar alerts context
+#### Historical case #1 (2025-09-26 15:17)
+### AIOps reusable context
+- service: vms-ai-manager
+- region: dev-nbu-aps1
+- category: memory
+- severity: critical
+- title: vms-ai-manager container memory usage upper 0.95
+- duration: 10m
+- window: ...
+
+
+# --- END HISTORICAL ---
+
+[USER]
+你是我的AIOps只读归因助手。严格禁止任何写操作（伸缩/重启/删除/修改配置/触发Job 等）。
+任务：
+ - 只读查询与报警强相关的指标/日志（CloudWatch、VictoriaMetrics、K8s 描述等）。
+ - 输出 JSON：{root_cause, signals[], confidence, next_checks[], sop_link}。
+
+【Normalized Alert】
+{
+  "category": "memory",
+  "duration": "10m",
+  "env": "dev",
+  "group_id": "vms-ai-manager_critical",
+  "metadata": {
+    "alert_name": "vms-ai-manager container memory usage upper 0.95",
+    "alertgroup": "vms-ai-manager",
+    "alertname": "vms-ai-manager container memory usage upper 0.95",
+    "auto_create_group": false,
+    "comparison": "\u003e",
+    "container": "vms-ai-manager",
+    "current_value": 0.96,
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Enterprise Software (CD)|Cloud (CD)|VIGI]",
+    "duration": "300s",
+    "expression": "sum(container_memory_working_set_bytes{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"vms-ai-manager.*\", namespace=~\"vms\"}) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"vms-ai-manager.*\", namespace=~\"vms\", resource=\"memory\"} \u003e 0) by (pod, container)\u003e0.95",
+    "group_id": "vms-ai-manager_critical",
+    "pod": "vms-ai-manager-2.1.421-56bd585f6-g2dcg",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "vms-ai-manager",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 0.95
+  },
+  "region": "dev-nbu-aps1",
+  "service": "vms-ai-manager",
+  "severity": "critical",
+  "status": "firing",
+  "threshold": "0.95",
+  "title": "vms-ai-manager container memory usage upper 0.95",
+  "window": "5m"
+}
+[/USER]
+
+/quit

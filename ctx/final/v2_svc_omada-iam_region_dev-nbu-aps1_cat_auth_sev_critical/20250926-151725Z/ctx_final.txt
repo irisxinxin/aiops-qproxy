@@ -1,0 +1,121 @@
+### AIOps reusable context
+- service: omada-iam
+- region: dev-nbu-aps1
+- category: auth
+- severity: critical
+- title: omada-iam login rate limit exceeded
+- path: /api/v1/auth/login
+- method: POST
+- duration: 8m
+- window: 5m
+- threshold: 10
+
+#### SOP (selected)
+### [SOP] Preloaded knowledge (high priority)
+#### LIMITED-52
+- Action: 014The number of attempts for 
+account activation and/or 
+password reset emails is up 
+to limit.
+- Action: Please try again after
+#### EXPIRE-53
+- Action: 107Expired token.
+- Action: checkLoginToken is 
+expired
+CHECK_LOGIN_TOKEN_
+#### FAILED-55
+- Action: 007Query billing info failed.
+- Action: 查询
+billing 
+info 失
+败Query billing info 
+failed.
+- Action: PAYMENT_UNKNOWN_
+#### TION-80
+- Action: 215Some organizations have 
+already been invited.
+- Action: Please 
+only select organizations that 
+have not been invited.修改用
+户组织
+时组织
+重复下
+发
+LIST_GLOBAL_USER_O
+RGANIZATION_FAILED-80
+216List user's organizations 
+failed.查询用
+户组织
+失败
+USER_OPERATE_ALL_F
+#### AILED-80
+- Action: 217The operation was failed.
+- Action: 操作全
+部失败The operation was 
+failed.
+- Action: USER_OPERATE_NOT_
+#### ILED-82
+- Action: 301Failed to get last 
+access failed.
+- Action: CREATE_ORG_REACH_
+#### HILD-84
+- Precheck: After 
+deleted, all its sub-users will 
+be transferred to the current 
+operating user.提示用
+户是否
+确认需
+要删除
+该目标
+用户，
+如果删
+除，目
+标用户
+的所有
+子用户
+会全部
+转到当
+前操作
+用户名
+下Delete {Username}?
+- Action: 006Delete {Username}?
+- Action: After deleted, all its 
+sub-users will be 
+transferred to the 
+current operating 
+user.
+- Action: INVALID_SITE_PERMIS
+SION_IN_OPERATION_
+#### HIVED-10
+- Action: 203Order archived .
+- Action: No further 
+operation can be executed on 
+this order.Order archived, no 
+further operation 
+should be executed 
+on this order.
+- Action: PAYMENT_ORDER_CRE
+ATION_FAILED-10
+204Order creation failed.
+- Action: Order creation failed
+PAYMENT_ORDER_CH
+ARGE_FAILED-10
+205Failed to confirm this order.
+- Action: Charge for order 
+failed
+PAYMENT_PRODUCT_
+NOT_FOUND_FOR_SER
+#### ONSUMED-10
+- Action: 501The coupon has been used.
+- Action: Coupon has been 
+used
+PAYMENT_COUPON_E
+#### 12 https://kibana.tplinknbu.com/s/cdd_cloud_service/app/discover#/?_g=(filters:!(),refreshInterval:(pause:!t,value:0),ti
+- Action: (from:now%2Fd,to:now%2Fd))&_a=(columns:!(message,kubernetes.labels.region),filters:!((%27$state%27:(store:appState),meta:(alias:!
+- Action: n,disabled:!f,index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,key:target,negate:!f,params:(query:mongo),type:phrase),query:
+(match_phrase:(target:mongo)))),index:d4d45bd0-2813-11ed-ba5e-9372ec608ce2,interval:auto,query:(language:kuery,query:
+%27%27),sort:!())
+Troubleshooting Guide  – 101.
+
+#### Model Output (cleaned)
+
