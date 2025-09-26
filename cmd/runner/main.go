@@ -597,28 +597,46 @@ func firstN(s string, n int) string {
 
 func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
 	var b strings.Builder
-	b.WriteString("/tools trust-all\n")
+
+	// 简化的 prompt 格式，直接给 q CLI 一个清晰的任务
+	b.WriteString("You are an AIOps root cause analysis assistant. Analyze the following alert and provide a JSON response.\n\n")
+
+	// 添加 SOP 上下文（如果有）
 	if strings.TrimSpace(sop) != "" {
-		b.WriteString("\n# --- PREPEND SOP CONTEXT ---\n")
+		b.WriteString("SOP Knowledge:\n")
 		b.WriteString(sop)
-		b.WriteString("\n# --- END SOP ---\n")
+		b.WriteString("\n\n")
 	}
+
+	// 添加历史上下文（如果有）
 	if strings.TrimSpace(historical) != "" {
-		b.WriteString("\n# --- HISTORICAL CONTEXT ---\n")
+		b.WriteString("Historical Context:\n")
 		b.WriteString(historical)
-		b.WriteString("\n# --- END HISTORICAL ---\n")
+		b.WriteString("\n\n")
 	}
+
+	// 添加 fallback 上下文（如果有）
 	if strings.TrimSpace(fallback) != "" {
-		b.WriteString("\n# --- FALLBACK CTX ---\n")
+		b.WriteString("Fallback Context:\n")
 		b.WriteString(fallback)
-		b.WriteString("\n# --- END FALLBACK ---\n")
+		b.WriteString("\n\n")
 	}
-	b.WriteString("\n[USER]\n")
-	b.WriteString("你是我的AIOps只读归因助手。严格禁止任何写操作（伸缩/重启/删除/修改配置/触发Job 等）。\n")
-	b.WriteString("任务：\n - 只读查询与报警强相关的指标/日志（CloudWatch、VictoriaMetrics、K8s 描述等）。\n - 输出 JSON：{root_cause, signals[], confidence, next_checks[], sop_link}。\n\n")
-	b.WriteString("【Normalized Alert】\n")
+
+	// 告警数据
+	b.WriteString("Alert to analyze:\n")
 	b.WriteString(userJSON)
-	b.WriteString("\n[/USER]\n\n/quit\n")
+	b.WriteString("\n\n")
+
+	// 输出要求
+	b.WriteString("Please provide a JSON response with the following structure:\n")
+	b.WriteString("{\n")
+	b.WriteString("  \"root_cause\": \"string describing the likely root cause\",\n")
+	b.WriteString("  \"signals\": [\"array\", \"of\", \"key\", \"signals\"],\n")
+	b.WriteString("  \"confidence\": 0.0,\n")
+	b.WriteString("  \"next_checks\": [\"array\", \"of\", \"next\", \"checks\"],\n")
+	b.WriteString("  \"sop_link\": \"relevant SOP reference\"\n")
+	b.WriteString("}\n")
+
 	return b.String()
 }
 
