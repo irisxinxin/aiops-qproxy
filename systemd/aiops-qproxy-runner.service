@@ -1,0 +1,23 @@
+
+[Unit]
+Description=AIOps Q Proxy Runner (v2.4 merged-final)
+After=network.target
+
+[Service]
+Type=simple
+Environment=Q_BIN=/usr/local/bin/q
+Environment=QCTX_DIR=/opt/aiops-qproxy/ctx
+Environment=QLOG_DIR=/opt/aiops-qproxy/logs
+Environment=QDATA_DIR=/opt/aiops-qproxy/data
+Environment=QWORKDIR=/opt/aiops-qproxy
+WorkingDirectory=/opt/aiops-qproxy
+ExecStart=/opt/aiops-qproxy/bin/qproxy-runner -alert -
+Restart=always
+RestartSec=2
+# sanitize ANSI
+Environment=NO_COLOR=1
+Environment=CLICOLOR=0
+Environment=TERM=dumb
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# build & logs
+bin/
+*.log
+*.out
+# editors
+.vscode/
+.idea/
+# OS
+.DS_Store
+# swap
+**/*.swp

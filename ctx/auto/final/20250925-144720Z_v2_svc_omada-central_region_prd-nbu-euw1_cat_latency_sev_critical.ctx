@@ -1,0 +1,62 @@
+# q input
+
+/context add "./ctx/sop.md"
+/tools trust-all
+
+[USER]
+你是我的AIOps只读归因助手。严格禁止任何写操作（伸缩/重启/删除/修改配置/触发Job 等）。
+任务：
+ - 只读查询与报警强相关的指标/日志（CloudWatch、VictoriaMetrics、K8s 描述等）。
+ - 输出 JSON：{root_cause, signals[], confidence, next_checks[], sop_link}。
+
+【Normalized Alert】
+{
+  "category": "latency",
+  "duration": "120s",
+  "env": "prd",
+  "group_id": "omada-central_critical",
+  "method": "POST",
+  "path": "/api/v1/central/account/accept-batch-invite",
+  "region": "prd-nbu-euw1",
+  "service": "omada-central",
+  "severity": "critical",
+  "status": "firing",
+  "threshold": "3.0",
+  "title": "omada central account related interfaces average latency is too high",
+  "window": "5m"
+}
+
+[/USER]
+
+/quit
+
+
+# q output (clean)
+
+> > > ! Some colorful TUI banner...
+Thinking... I understand. Generating analysis…
+--- BEGIN ATTRIBUTION JSON ---
+{
+  "root_cause": "CPU spike due to rollout warm-up / HPA scaling; auto-resolved, no user impact.",
+  "signals": [
+    {"metric":"container_cpu_usage_seconds_total","window":"15m","pattern":"spike_then_normalize"},
+    {"metric":"replicas_available_ratio","window":"30m","pattern":"stable"}
+  ],
+  "confidence": 0.92,
+  "next_checks": [
+    "Correlate with HPA scale events",
+    "Validate resource requests/limits",
+    "Check deployment window for warm-up"
+  ],
+  "sop_link": "./ctx/sop.md"
+}
+--- END ATTRIBUTION JSON ---
+(context below)
+<<<FINAL_CTX_START>>>
+# Reusable Context: omada-essential CPU spike
+- Region: prd-nbu-aps1
+- Service: omada-essential
+- Pattern: rollout/HPA warm-up transient
+Metrics: container_cpu_usage_seconds_total, replicas_available_ratio
+Action: treat as benign if no availability drop; verify scaling timeline.
+<<<FINAL_CTX_END>>>

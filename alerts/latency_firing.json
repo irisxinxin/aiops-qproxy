@@ -1,0 +1,25 @@
+{
+  "status": "firing",
+  "env": "prd",
+  "region": "prd-nbu-euw1",
+  "service": "omada-central",
+  "category": "latency",
+  "severity": "critical",
+  "title": "omada central account related interfaces average latency is too high",
+  "group_id": "omada-central_critical",
+  "method": "POST",
+  "path": "/api/v1/central/account/accept-batch-invite",
+  "threshold": "3.0",
+  "window": "5m",
+  "duration": "120s",
+  "labels": {
+    "namespace": "omada-central",
+    "application": "omada-central"
+  },
+  "metadata": {
+    "expression": "( sum(rate(omada_rest_dispatcher_requests_seconds_sum{namespace=\"omada-central\",application=\"omada-central\",path=~\"/api/v1/central/account/.*\", path!=\"/api/v1/central/account/accept-invite\", err_code!=\"-1\"}[5m])) by(path,method) / (sum(rate(omada_rest_dispatcher_requests_seconds_count{namespace=\"omada-central\",application=\"omada-central\",path=~\"/api/v1/central/account/.*\", path!=\"/api/v1/central/account/accept-invite\", err_code!=\"-1\"}[5m])) by(path,method) > 0) )>3.0",
+    "datasource_cluster": "prd-nbu-euw1",
+    "prometheus": "monitoring/kps-prometheus",
+    "tel_up": "30m"
+  }
+}
