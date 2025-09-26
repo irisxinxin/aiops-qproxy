@@ -6,15 +6,19 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -618,9 +622,136 @@ func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
 	return b.String()
 }
 
+// =========== HTTP 服务 ===========
+
+type Server struct {
+	workdir      string
+	logDir       string
+	ctxDir       string
+	qbin         string
+	sopDir       string
+	sopPrepend   bool
+	fallbackPath string
+}
+
+func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 读取告警 JSON
+	raw, err := io.ReadAll(r.Body)
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		http.Error(w, "解析告警JSON失败: unexpected end of JSON input", http.StatusBadRequest)
+		return
+	}
+
+	var alert Alert
+	if err := json.Unmarshal(raw, &alert); err != nil {
+		http.Error(w, fmt.Sprintf("解析告警JSON失败: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// 阈值归一化成字符串
+	thStr := jsonRawToString(alert.Threshold)
+	// 备份：把原始 alert + 阈值字符串化输出，便于 prompt 使用
+	alertMap := map[string]any{}
+	_ = json.Unmarshal(raw, &alertMap)
+	if thStr != "" {
+		alertMap["threshold"] = thStr
+	}
+	userJSONBytes, _ := json.MarshalIndent(alertMap, "", "  ")
+	userJSON := string(userJSONBytes)
+
+	// 规范化 key（用于日志/落盘）
+	key := normKey(alert)
+
+	// 预加载 SOP + 历史上下文 + fallback
+	var sopText string
+	if s.sopPrepend {
+		sopText, _ = buildSopContext(alert, s.sopDir)
+	}
+
+	// 加载历史上下文（最多5条记录）
+	historicalEntries, _ := loadHistoricalContexts(s.ctxDir, key, 5)
+	historicalText := buildHistoricalContext(historicalEntries)
+
+	fallbackText := readFallbackCtx(s.fallbackPath)
+
+	// 组装 prompt
+	prompt := buildPrompt(alert, sopText, historicalText, fallbackText, userJSON)
+
+	// 调用 q
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	stdout, stderr, exitCode, runErr := runQ(ctx, s.qbin, prompt)
+
+	// 清洗 ANSI / 控制符
+	stdoutClean := cleanANSI(stdout)
+	stderrClean := cleanANSI(stderr)
+
+	// 日志落盘（调试）
+	meta := map[string]any{
+		"usable":      runErr == nil && usableHeuristic(exitCode, stderrClean),
+		"run_err":     fmt.Sprint(runErr),
+		"exit_code":   exitCode,
+		"stdin_len":   len(prompt),
+		"remote_addr": r.RemoteAddr,
+		"user_agent":  r.UserAgent(),
+	}
+	_, _ = writeDebugLogs(s.logDir, key, stdoutClean, stderrClean, meta)
+
+	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP+fallback 选择 + 模型返回"整合为可复用知识）
+	if runErr == nil && usableHeuristic(exitCode, stderrClean) {
+		reusable := composeReusableContext(alert, sopText, fallbackText, stdoutClean)
+		// 每个告警类型最多保留10条记录
+		if _, err := persistReusableCtx(s.ctxDir, key, reusable, 10); err != nil {
+			// 不致命
+		}
+	}
+
+	// 设置响应头
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// 返回结果
+	response := map[string]any{
+		"success":   true,
+		"result":    stdoutClean,
+		"exit_code": exitCode,
+		"key":       key,
+	}
+
+	if runErr != nil {
+		response["success"] = false
+		response["error"] = runErr.Error()
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "healthy",
+		"service": "aiops-qproxy",
+		"version": "v2.4",
+	})
+}
+
 // =========== 主流程 ===========
 
 func main() {
+	// 命令行参数
+	var (
+		listenAddr = flag.String("listen", ":8080", "HTTP server listen address")
+		httpMode   = flag.Bool("http", false, "Run as HTTP server")
+	)
+	flag.Parse()
+
 	// 目录 & 环境
 	workdir := getenv("QWORKDIR", ".")
 	logDir := getenv("QLOG_DIR", filepath.Join(workdir, "logs"))
@@ -633,7 +764,52 @@ func main() {
 	mustMkdirAll(logDir)
 	mustMkdirAll(ctxDir)
 
-	// 读取告警 JSON（stdin）
+	// HTTP 服务模式
+	if *httpMode || len(os.Args) > 1 && os.Args[1] == "--http" {
+		server := &Server{
+			workdir:      workdir,
+			logDir:       logDir,
+			ctxDir:       ctxDir,
+			qbin:         qbin,
+			sopDir:       sopDir,
+			sopPrepend:   sopPrepend,
+			fallbackPath: fallbackPath,
+		}
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/alert", server.handleAlert)
+		mux.HandleFunc("/health", server.handleHealth)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Not found", http.StatusNotFound)
+		})
+
+		srv := &http.Server{
+			Addr:    *listenAddr,
+			Handler: mux,
+		}
+
+		// 优雅关闭
+		go func() {
+			sigChan := make(chan os.Signal, 1)
+			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+			<-sigChan
+			fmt.Println("Shutting down server...")
+			srv.Shutdown(context.Background())
+		}()
+
+		fmt.Printf("Starting HTTP server on %s\n", *listenAddr)
+		fmt.Printf("Endpoints:\n")
+		fmt.Printf("  POST /alert - Process alert\n")
+		fmt.Printf("  GET  /health - Health check\n")
+
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// 原有的 CLI 模式（从 stdin 读取）
 	raw, err := readAllStdin()
 	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
 		fmt.Fprintln(os.Stderr, "解析告警JSON失败: unexpected end of JSON input")
