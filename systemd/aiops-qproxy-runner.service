@@ -6,11 +6,12 @@ After=network.target
 [Service]
 Type=simple
 # 核心配置
-Environment=Q_BIN=/usr/local/bin/q
+Environment=Q_BIN=/home/ubuntu/.local/bin/q
 Environment=QWORKDIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4
 Environment=QCTX_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/ctx/final
 Environment=QLOG_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/logs
 Environment=QDATA_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/data
+
 
 # SOP 配置
 Environment=Q_SOP_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/ctx/sop
