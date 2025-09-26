@@ -50,12 +50,22 @@ if lsof -i ":$HTTP_PORT" >/dev/null 2>&1; then
     sleep 2
 fi
 
+# 检查 q CLI 是否可用
+Q_BIN="${Q_BIN:-/usr/local/bin/q}"
+if [ ! -x "$Q_BIN" ]; then
+    echo "⚠️  警告: q CLI 不可用 ($Q_BIN)"
+    echo "使用 mock q (/bin/cat) 进行测试"
+    Q_BIN="/bin/cat"
+else
+    echo "✅ 使用真实 q CLI: $Q_BIN"
+fi
+
 # 启动 HTTP 服务
 echo "--- 启动 HTTP 服务 ---"
 cd "$PROJECT_DIR"
 Q_SOP_DIR="$PROJECT_DIR/ctx/sop" \
 Q_SOP_PREPEND=1 \
-Q_BIN="/bin/cat" \
+Q_BIN="$Q_BIN" \
 ./bin/qproxy-runner --http --listen=":$HTTP_PORT" &
 
 SERVER_PID=$!
