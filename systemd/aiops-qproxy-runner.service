@@ -24,7 +24,7 @@ Environment=CLICOLOR=0
 Environment=TERM=dumb
 
 WorkingDirectory=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4
-ExecStart=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/bin/qproxy-runner
+ExecStart=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/bin/qproxy-runner --http --listen=:8080
 Restart=always
 RestartSec=2
 User=ubuntu
