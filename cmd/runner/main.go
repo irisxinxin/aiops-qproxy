@@ -30,7 +30,6 @@ import (
   - QCTX_DIR         : 可复用 context 存放目录（默认: ./ctx/final）
   - Q_SOP_DIR        : 额外 SOP JSONL 目录（可选，启用后每次都会作为前置 context）
   - Q_SOP_PREPEND    : "1" = 启用 SOP 预加载（默认启用）
-  - Q_FALLBACK_CTX   : 附加的兜底 context 文件（可选，文本/JSONL 都可；每次都前置）
   - NO_COLOR/CLICOLOR/TERM : 抑制 q 彩色输出（建议 systemd 中设置）
 */
 
@@ -263,6 +262,8 @@ func buildSopContext(a Alert, dir string) (string, error) {
 			if x == "" {
 				continue
 			}
+			// 替换模板变量
+			x = replaceSOPTemplates(x, a)
 			key := prefix + "::" + x
 			if seen[key] {
 				continue
@@ -338,40 +339,20 @@ func loadHistoricalContexts(ctxDir, key string, maxCount int) ([]ContextEntry, e
 	return entries, nil
 }
 
-func buildHistoricalContext(entries []ContextEntry) string {
+func buildHistoricalContextEntries(entries []ContextEntry) string {
 	if len(entries) == 0 {
 		return ""
 	}
 
 	var b strings.Builder
-	b.WriteString("### [HISTORICAL] Similar alerts context\n")
-
+	// 最多添加3个历史记录文件
 	for i, entry := range entries {
-		if i >= 3 { // 最多显示3条历史记录
+		if i >= 3 {
 			break
 		}
-		b.WriteString(fmt.Sprintf("#### Historical case #%d (%s)\n", i+1, entry.Timestamp.Format("2006-01-02 15:04")))
-		if entry.Preview != "" {
-			b.WriteString(entry.Preview + "\n")
-		}
-		b.WriteString("\n")
+		b.WriteString("/context add " + entry.Path + "\n")
 	}
-
 	return b.String()
-}
-
-// =========== fallback ctx 读取 ===========
-
-func readFallbackCtx(path string) string {
-	p := strings.TrimSpace(path)
-	if p == "" {
-		return ""
-	}
-	b, err := os.ReadFile(p)
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(b))
 }
 
 // =========== q 进程执行 ===========
@@ -595,32 +576,98 @@ func firstN(s string, n int) string {
 
 // =========== Prompt 构造 ===========
 
-func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
+// replaceSOPTemplates 替换 SOP 中的模板变量为告警中的具体值
+func replaceSOPTemplates(sop string, a Alert) string {
+	// 解析 metadata 来获取具体字段
+	var metadata map[string]interface{}
+	if len(a.Metadata) > 0 {
+		json.Unmarshal(a.Metadata, &metadata)
+	}
+
+	// 取字符串字段的通用方法（按候选键优先级）
+	getStr := func(m map[string]interface{}, keys ...string) string {
+		for _, k := range keys {
+			if v, ok := m[k]; ok {
+				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+					return s
+				}
+			}
+		}
+		return ""
+	}
+
+	// 替换 {{expression}} 为告警自带的表达式
+	if expr, ok := metadata["expression"].(string); ok && expr != "" {
+		sop = strings.ReplaceAll(sop, "{{expression}}", expr)
+	}
+
+	// 替换 {{alert_path}} 为告警路径
+	if a.Path != "" {
+		sop = strings.ReplaceAll(sop, "{{alert_path}}", a.Path)
+	}
+
+	// 替换 {{service_name}} 为服务名
+	if a.Service != "" {
+		sop = strings.ReplaceAll(sop, "{{service_name}}", a.Service)
+	}
+
+	// 替换 {{service名}} 为服务名（中文版本）
+	if a.Service != "" {
+		sop = strings.ReplaceAll(sop, "{{service名}}", a.Service)
+	}
+
+	// 替换 {{alert_start_time}} 和 {{alert_end_time}} 为时间范围（优先使用告警提供的值）
+	startTime := getStr(metadata, "alert_start_time", "start_time", "start", "startsAt")
+	endTime := getStr(metadata, "alert_end_time", "end_time", "end", "endsAt")
+	if strings.TrimSpace(startTime) == "" {
+		startTime = "now-10m"
+	}
+	if strings.TrimSpace(endTime) == "" {
+		endTime = "now"
+	}
+	sop = strings.ReplaceAll(sop, "{{alert_start_time}}", startTime)
+	sop = strings.ReplaceAll(sop, "{{alert_end_time}}", endTime)
+	// 单点时间占位符（优先使用告警里的 alert_time/timestamp/ts）
+	pointTime := getStr(metadata, "alert_time", "timestamp", "ts")
+	if strings.TrimSpace(pointTime) == "" {
+		pointTime = "now-10m"
+	}
+	sop = strings.ReplaceAll(sop, "alert_time", pointTime)
+
+	return sop
+}
+
+func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	var b strings.Builder
 
-	// 简化的 prompt 格式，直接给 q CLI 一个清晰的任务
-	b.WriteString("You are an AIOps root cause analysis assistant. Analyze the following alert and provide a JSON response.\n\n")
+	// 添加历史上下文文件（如果有）
+	if strings.TrimSpace(historicalEntries) != "" {
+		b.WriteString(historicalEntries)
+	}
 
 	// 添加 SOP 上下文（如果有）
 	if strings.TrimSpace(sop) != "" {
-		b.WriteString("SOP Knowledge:\n")
+		b.WriteString("\n# SOP Knowledge\n")
 		b.WriteString(sop)
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 	}
 
-	// 添加历史上下文（如果有）
-	if strings.TrimSpace(historical) != "" {
-		b.WriteString("Historical Context:\n")
-		b.WriteString(historical)
-		b.WriteString("\n\n")
-	}
-
-	// 添加 fallback 上下文（如果有）
-	if strings.TrimSpace(fallback) != "" {
-		b.WriteString("Fallback Context:\n")
-		b.WriteString(fallback)
-		b.WriteString("\n\n")
-	}
+	// 任务描述
+	b.WriteString("\nYou are an AIOps root cause analysis assistant. Your role is to:\n")
+	b.WriteString("1. Perform ALL relevant prechecks using available MCP servers to gather comprehensive data\n")
+	b.WriteString("2. Execute additional checks as needed to validate root cause hypothesis\n")
+	b.WriteString("3. Analyze the alert and provide root cause attribution based on ALL gathered data\n")
+	b.WriteString("4. Reference SOP actions and historical context as guidance\n")
+	b.WriteString("5. Provide actionable recommendations based on complete analysis\n\n")
+	b.WriteString("IMPORTANT: Continue analysis until you have conclusive evidence. Don't just suggest checks - execute them.\n")
+	b.WriteString("EFFICIENCY NOTE: Limit tools to 3-5 key queries, focus on most impactful evidence.\n\n")
+	b.WriteString("Available MCP servers:\n")
+	b.WriteString("- victoriametrics: Query VictoriaMetrics for Kubernetes and application metrics\n")
+	b.WriteString("- awslabseks_mcp_server: Manage EKS clusters and check pod status\n")
+	b.WriteString("- elasticsearch_mcp_server: Query Elasticsearch logs and data\n")
+	b.WriteString("- awslabscloudwatch_mcp_server: Access AWS CloudWatch metrics\n")
+	b.WriteString("- alertmanager: Manage alert configurations and status\n\n")
+	b.WriteString("Analyze the following alert and provide a JSON response.\n\n")
 
 	// 告警数据
 	b.WriteString("Alert to analyze:\n")
@@ -628,13 +675,13 @@ func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
 	b.WriteString("\n\n")
 
 	// 输出要求
-	b.WriteString("Please provide a JSON response with the following structure:\n")
+	b.WriteString("After completing your analysis, provide a JSON response with the following structure:\n")
 	b.WriteString("{\n")
-	b.WriteString("  \"root_cause\": \"string describing the likely root cause\",\n")
-	b.WriteString("  \"signals\": [\"array\", \"of\", \"key\", \"signals\"],\n")
+	b.WriteString("  \"root_cause\": \"string describing the likely root cause based on comprehensive metrics analysis\",\n")
+	b.WriteString("  \"evidence\": [\"array\", \"of\", \"supporting\", \"evidence\", \"from\", \"metrics\", \"and\", \"logs\"],\n")
 	b.WriteString("  \"confidence\": 0.0,\n")
-	b.WriteString("  \"next_checks\": [\"array\", \"of\", \"next\", \"checks\"],\n")
-	b.WriteString("  \"sop_link\": \"relevant SOP reference\"\n")
+	b.WriteString("  \"suggested_actions\": [\"array\", \"of\", \"specific\", \"recommended\", \"actions\", \"based\", \"on\", \"complete\", \"analysis\"],\n")
+	b.WriteString("  \"analysis_summary\": \"brief summary of your investigation process and findings\"\n")
 	b.WriteString("}\n")
 
 	return b.String()
@@ -643,13 +690,12 @@ func buildPrompt(a Alert, sop, historical, fallback, userJSON string) string {
 // =========== HTTP 服务 ===========
 
 type Server struct {
-	workdir      string
-	logDir       string
-	ctxDir       string
-	qbin         string
-	sopDir       string
-	sopPrepend   bool
-	fallbackPath string
+	workdir    string
+	logDir     string
+	ctxDir     string
+	qbin       string
+	sopDir     string
+	sopPrepend bool
 }
 
 func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
@@ -693,12 +739,10 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 
 	// 加载历史上下文（最多5条记录）
 	historicalEntries, _ := loadHistoricalContexts(s.ctxDir, key, 5)
-	historicalText := buildHistoricalContext(historicalEntries)
-
-	fallbackText := readFallbackCtx(s.fallbackPath)
+	historicalContextEntries := buildHistoricalContextEntries(historicalEntries)
 
 	// 组装 prompt
-	prompt := buildPrompt(alert, sopText, historicalText, fallbackText, userJSON)
+	prompt := buildPrompt(alert, sopText, historicalContextEntries, userJSON)
 
 	// 调用 q
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
@@ -720,9 +764,9 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = writeDebugLogs(s.logDir, key, stdoutClean, stderrClean, meta)
 
-	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP+fallback 选择 + 模型返回"整合为可复用知识）
+	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP 选择 + 模型返回"整合为可复用知识）
 	if runErr == nil && usableHeuristic(exitCode, stderrClean) {
-		reusable := composeReusableContext(alert, sopText, fallbackText, stdoutClean)
+		reusable := composeReusableContext(alert, sopText, stdoutClean)
 		// 每个告警类型最多保留10条记录
 		if _, err := persistReusableCtx(s.ctxDir, key, reusable, 10); err != nil {
 			// 不致命
@@ -766,7 +810,6 @@ func main() {
 	// 命令行参数
 	var (
 		listenAddr = flag.String("listen", ":8080", "HTTP server listen address")
-		httpMode   = flag.Bool("http", false, "Run as HTTP server")
 	)
 	flag.Parse()
 
@@ -777,135 +820,54 @@ func main() {
 	qbin := getenv("Q_BIN", "")
 	sopDir := getenv("Q_SOP_DIR", filepath.Join(workdir, "ctx", "sop"))
 	sopPrepend := getenv("Q_SOP_PREPEND", "1") == "1"
-	fallbackPath := getenv("Q_FALLBACK_CTX", "")
 
 	mustMkdirAll(logDir)
 	mustMkdirAll(ctxDir)
 
-	// HTTP 服务模式
-	if *httpMode || len(os.Args) > 1 && os.Args[1] == "--http" {
-		server := &Server{
-			workdir:      workdir,
-			logDir:       logDir,
-			ctxDir:       ctxDir,
-			qbin:         qbin,
-			sopDir:       sopDir,
-			sopPrepend:   sopPrepend,
-			fallbackPath: fallbackPath,
-		}
-
-		mux := http.NewServeMux()
-		mux.HandleFunc("/alert", server.handleAlert)
-		mux.HandleFunc("/health", server.handleHealth)
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "Not found", http.StatusNotFound)
-		})
-
-		srv := &http.Server{
-			Addr:    *listenAddr,
-			Handler: mux,
-		}
-
-		// 优雅关闭
-		go func() {
-			sigChan := make(chan os.Signal, 1)
-			signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-			<-sigChan
-			fmt.Println("Shutting down server...")
-			srv.Shutdown(context.Background())
-		}()
-
-		fmt.Printf("Starting HTTP server on %s\n", *listenAddr)
-		fmt.Printf("Endpoints:\n")
-		fmt.Printf("  POST /alert - Process alert\n")
-		fmt.Printf("  GET  /health - Health check\n")
-
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-			os.Exit(1)
-		}
-		return
+	// 启动 HTTP 服务
+	server := &Server{
+		workdir:    workdir,
+		logDir:     logDir,
+		ctxDir:     ctxDir,
+		qbin:       qbin,
+		sopDir:     sopDir,
+		sopPrepend: sopPrepend,
 	}
 
-	// 原有的 CLI 模式（从 stdin 读取）
-	raw, err := readAllStdin()
-	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
-		fmt.Fprintln(os.Stderr, "解析告警JSON失败: unexpected end of JSON input")
-		os.Exit(2)
-	}
-	var alert Alert
-	if err := json.Unmarshal(raw, &alert); err != nil {
-		fmt.Fprintln(os.Stderr, "解析告警JSON失败:", err)
-		os.Exit(2)
-	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/alert", server.handleAlert)
+	mux.HandleFunc("/health", server.handleHealth)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Not found", http.StatusNotFound)
+	})
 
-	// 阈值归一化成字符串
-	thStr := jsonRawToString(alert.Threshold)
-	// 备份：把原始 alert + 阈值字符串化输出，便于 prompt 使用
-	alertMap := map[string]any{}
-	_ = json.Unmarshal(raw, &alertMap)
-	if thStr != "" {
-		alertMap["threshold"] = thStr
-	}
-	userJSONBytes, _ := json.MarshalIndent(alertMap, "", "  ")
-	userJSON := string(userJSONBytes)
-
-	// 规范化 key（用于日志/落盘）
-	key := normKey(alert)
-
-	// 预加载 SOP + 历史上下文 + fallback
-	var sopText string
-	if sopPrepend {
-		sopText, _ = buildSopContext(alert, sopDir)
+	srv := &http.Server{
+		Addr:    *listenAddr,
+		Handler: mux,
 	}
 
-	// 加载历史上下文（最多5条记录）
-	historicalEntries, _ := loadHistoricalContexts(ctxDir, key, 5)
-	historicalText := buildHistoricalContext(historicalEntries)
+	// 优雅关闭
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+		fmt.Println("Shutting down server...")
+		srv.Shutdown(context.Background())
+	}()
 
-	fallbackText := readFallbackCtx(fallbackPath)
+	fmt.Printf("Starting HTTP server on %s\n", *listenAddr)
+	fmt.Printf("Endpoints:\n")
+	fmt.Printf("  POST /alert - Process alert\n")
+	fmt.Printf("  GET  /health - Health check\n")
 
-	// 组装 prompt
-	prompt := buildPrompt(alert, sopText, historicalText, fallbackText, userJSON)
-
-	// 调用 q
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
-	defer cancel()
-	stdout, stderr, exitCode, runErr := runQ(ctx, qbin, prompt)
-
-	// 清洗 ANSI / 控制符
-	stdoutClean := cleanANSI(stdout)
-	stderrClean := cleanANSI(stderr)
-
-	// 日志落盘（调试）
-	meta := map[string]any{
-		"usable":    runErr == nil && usableHeuristic(exitCode, stderrClean),
-		"run_err":   fmt.Sprint(runErr),
-		"exit_code": exitCode,
-		"stdin_len": len(prompt),
-	}
-	_, _ = writeDebugLogs(logDir, key, stdoutClean, stderrClean, meta)
-
-	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP+fallback 选择 + 模型返回"整合为可复用知识）
-	if runErr == nil && usableHeuristic(exitCode, stderrClean) {
-		reusable := composeReusableContext(alert, sopText, fallbackText, stdoutClean)
-		// 每个告警类型最多保留10条记录
-		if _, err := persistReusableCtx(ctxDir, key, reusable, 10); err != nil {
-			// 不致命
-		}
-	}
-
-	// 终端输出 q 的 clean 后结果（方便上层 JSON 抽取）
-	fmt.Println(stdoutClean)
-
-	// 退出码透传（非0便于 systemd 判定失败）
-	if exitCode != 0 {
-		os.Exit(exitCode)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 // 把当前报警 + 前置知识 + 返回内容 拼为可复用文本
-func composeReusableContext(a Alert, sop, fallback, modelOut string) string {
+func composeReusableContext(a Alert, sop, modelOut string) string {
 	var b strings.Builder
 	b.WriteString("### AIOps reusable context\n")
 	b.WriteString("- service: " + a.Service + "\n")
@@ -934,10 +896,6 @@ func composeReusableContext(a Alert, sop, fallback, modelOut string) string {
 	if strings.TrimSpace(sop) != "" {
 		b.WriteString("#### SOP (selected)\n")
 		b.WriteString(sop + "\n")
-	}
-	if strings.TrimSpace(fallback) != "" {
-		b.WriteString("#### Fallback\n")
-		b.WriteString(fallback + "\n")
 	}
 	b.WriteString("#### Model Output (cleaned)\n")
 	b.WriteString(modelOut + "\n")

@@ -23,6 +23,11 @@ Environment=NO_COLOR=1
 Environment=CLICOLOR=0
 Environment=TERM=dumb
 
+# Q CLI 自动信任设置
+Environment=Q_MCP_AUTO_TRUST=true
+Environment=Q_MCP_SKIP_TRUST_PROMPTS=true
+Environment=Q_TOOLS_AUTO_TRUST=true
+
 WorkingDirectory=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4
 ExecStart=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/bin/qproxy-runner --http --listen=:8080
 Restart=always
