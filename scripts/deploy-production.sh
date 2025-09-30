@@ -56,7 +56,7 @@ required_files=(
     "$TARGET_DIR/bin/qproxy-runner"
     "$TARGET_DIR/ctx/sop/omada_sop_full.jsonl"
     "$TARGET_DIR/ctx/sop/vigi_sop_full.jsonl"
-    "$TARGET_DIR/systemd/aiops-qproxy-runner.service"
+    "$TARGET_DIR/systemd/aiops-qproxy-runner.service" 
 )
 
 for file in "${required_files[@]}"; do
@@ -99,6 +99,17 @@ if echo '{"service":"omada-central","region":"prd-nbu-aps1","category":"latency"
 else
     echo "❌ SOP 匹配功能异常"
     exit 1
+fi
+
+# 9.5. 设置 Q CLI 信任
+echo "--- 设置 Q CLI 信任 ---"
+if [ -f "/home/ubuntu/.local/bin/q" ]; then
+    echo "设置 Q CLI 自动信任..."
+    export Q_BIN=/home/ubuntu/.local/bin/q
+    echo -e "y\nq" | $Q_BIN /tools trust-all
+    echo "✅ Q CLI 信任设置完成"
+else
+    echo "⚠️  Q CLI 未找到，跳过信任设置"
 fi
 
 # 10. 启动服务
