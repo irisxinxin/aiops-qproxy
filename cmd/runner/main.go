@@ -107,6 +107,12 @@ func cleanANSI(s string) string {
 	s = ansiRE.ReplaceAllString(s, "")
 	// 清理 TUI 前缀（如 "> ", "!> " 等）
 	s = tuiPrefixRE.ReplaceAllString(s, "")
+	// 清理 Unicode 转义字符
+	s = strings.ReplaceAll(s, "\\u003e", ">")
+	s = strings.ReplaceAll(s, "\\u003c", "<")
+	s = strings.ReplaceAll(s, "\\u0026", "&")
+	s = strings.ReplaceAll(s, "\\u0022", "\"")
+	s = strings.ReplaceAll(s, "\\u0027", "'")
 	// 常见杂质再清理一下
 	s = strings.ReplaceAll(s, "\u0000", "")
 	return strings.TrimSpace(s)
@@ -647,27 +653,8 @@ func replaceSOPTemplates(sop string, a Alert) string {
 func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	var b strings.Builder
 
-	// 任务描述 - 放在最前面
-	b.WriteString("## TASK: Analyze the following alert and provide root cause analysis\n\n")
-	b.WriteString("You are an AIOps root cause analysis assistant. Your role is to:\n")
-	b.WriteString("1. Perform ALL relevant prechecks using available MCP servers to gather comprehensive data\n")
-	b.WriteString("2. Execute additional checks as needed to validate root cause hypothesis\n")
-	b.WriteString("3. Analyze the alert and provide root cause attribution based on ALL gathered data\n")
-	b.WriteString("4. Reference SOP actions and historical context as guidance\n")
-	b.WriteString("5. Provide actionable recommendations based on complete analysis\n\n")
-	b.WriteString("IMPORTANT: Continue analysis until you have conclusive evidence. Don't just suggest checks - execute them.\n")
-	b.WriteString("EFFICIENCY NOTE: Limit tools to 3-5 key queries, focus on most impactful evidence.\n\n")
-
-	b.WriteString("## CRITICAL: You must provide your final analysis in the following JSON format:\n")
-	b.WriteString("```json\n")
-	b.WriteString("{\n")
-	b.WriteString("  \"root_cause\": \"string describing the likely root cause based on comprehensive metrics analysis\",\n")
-	b.WriteString("  \"evidence\": [\"array\", \"of\", \"supporting\", \"evidence\", \"from\", \"metrics\", \"and\", \"logs\"],\n")
-	b.WriteString("  \"confidence\": 0.0,\n")
-	b.WriteString("  \"suggested_actions\": [\"array\", \"of\", \"specific\", \"recommended\", \"actions\", \"based\", \"on\", \"complete\", \"analysis\"],\n")
-	b.WriteString("  \"analysis_summary\": \"brief summary of your investigation process and findings\"\n")
-	b.WriteString("}\n")
-	b.WriteString("```\n\n")
+	// 添加任务指令上下文
+	b.WriteString("/context add ctx/task_instructions.md\n")
 
 	// 添加 SOP 上下文（如果有）- 简化格式，放在前面作为参考
 	if strings.TrimSpace(sop) != "" {
@@ -682,7 +669,7 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	}
 
 	// 告警数据
-	b.WriteString("\nAlert to analyze:\n")
+	b.WriteString("\nAnalyze this alert and provide JSON response:\n")
 	b.WriteString(userJSON)
 
 	return b.String()
