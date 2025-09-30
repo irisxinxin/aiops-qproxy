@@ -79,16 +79,16 @@ fi
 
 echo
 
-# 4.5. 设置 Q CLI 信任
-echo "--- 步骤 4.5: 设置 Q CLI 信任 ---"
-if [ -f "/home/ubuntu/.local/bin/q" ]; then
-    echo "设置 Q CLI 自动信任..."
-    export Q_BIN=/home/ubuntu/.local/bin/q
-    echo -e "y\nq" | $Q_BIN /tools trust-all
-    echo "✅ Q CLI 信任设置完成"
-else
-    echo "⚠️  Q CLI 未找到，跳过信任设置"
-fi
+# 4.5. 设置 Q CLI 自动信任环境变量
+echo "--- 步骤 4.5: 设置 Q CLI 自动信任环境变量 ---"
+echo "设置环境变量以启用自动信任..."
+export Q_MCP_AUTO_TRUST=true
+export Q_MCP_SKIP_TRUST_PROMPTS=true
+export Q_TOOLS_AUTO_TRUST=true
+echo "✅ Q CLI 自动信任环境变量已设置"
+echo "   Q_MCP_AUTO_TRUST=true"
+echo "   Q_MCP_SKIP_TRUST_PROMPTS=true"
+echo "   Q_TOOLS_AUTO_TRUST=true"
 
 echo
 
