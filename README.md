@@ -18,7 +18,7 @@ cat alert.json | ./bin/qproxy-runner -alert - -meta meta.json
 ```
 
 ## What it does
-- Adds base ctx (`ctx/sop.md`, `ctx/schema.json`) and any matching reusable ctx from `data/ctx/`
+- Adds base ctx (`ctx/schema.json`) and any matching reusable ctx from `data/ctx/`
 - Dedups duplicate `/context add` lines (prevents 'Rule exists' spam)
 - Forces NO_COLOR/TERM=dumb to reduce ANSI; strips remaining sequences
 - Writes cleaned `stdout`/`stderr` into `logs/*.jsonl` and `logs/last_stdout.txt`

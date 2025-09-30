@@ -15,7 +15,6 @@ func main() {
 
 	// 模拟 /context add 重复错误（stderr）
 	if strings.Contains(in, "/context add") {
-		fmt.Fprintln(os.Stderr, "Error: Rule './ctx/sop.md' already exists.")
 		fmt.Fprintln(os.Stderr, "Error: Rule './ctx/schema.json' already exists.")
 	}
 	fmt.Fprintln(os.Stderr, "All tools are now trusted (!). Amazon Q will execute tools without asking for confirmation.")
@@ -41,7 +40,7 @@ func main() {
     "Correlate with deployment and DB slow query logs",
     "Validate rate-limit & retry backoff behaviors"
   ],
-  "sop_link": "./ctx/sop.md"
+  "sop_link": "./ctx/sop/"
 }`
 		ctx = `<<<FINAL_CTX_START>>>
 # Reusable Context: omada-central latency (account APIs)
@@ -69,7 +68,7 @@ Conclusion: burst + cache warm-up; auto-resolved.
     "Validate resource requests/limits",
     "Check deployment window for warm-up"
   ],
-  "sop_link": "./ctx/sop.md"
+  "sop_link": "./ctx/sop/"
 }`
 		ctx = `<<<FINAL_CTX_START>>>
 # Reusable Context: omada-essential CPU spike
