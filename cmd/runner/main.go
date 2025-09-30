@@ -653,7 +653,8 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	}
 
 	// 任务描述
-	b.WriteString("\nYou are an AIOps root cause analysis assistant. Your role is to:\n")
+	b.WriteString("\nTASK: Analyze the following alert and provide root cause analysis.\n")
+	b.WriteString("You are an AIOps root cause analysis assistant. Your role is to:\n")
 	b.WriteString("1. Perform ALL relevant prechecks using available MCP servers to gather comprehensive data\n")
 	b.WriteString("2. Execute additional checks as needed to validate root cause hypothesis\n")
 	b.WriteString("3. Analyze the alert and provide root cause attribution based on ALL gathered data\n")
@@ -743,6 +744,12 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 
 	// 组装 prompt
 	prompt := buildPrompt(alert, sopText, historicalContextEntries, userJSON)
+
+	// 调试：记录喂给 Q 的 prompt
+	writeDebugLogs(s.logDir, key, prompt, "", map[string]any{
+		"kind": "prompt_debug",
+		"ts":   time.Now().UTC().Format(time.RFC3339),
+	})
 
 	// 调用 q
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
