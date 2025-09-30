@@ -425,6 +425,13 @@ func writeDebugLogs(logDir, key string, stdout, stderr string, meta map[string]a
 	return stdoutPath, stderrPath
 }
 
+func writePromptDebug(logDir, key, prompt string) {
+	mustMkdirAll(logDir)
+	tsz := ts()
+	path := filepath.Join(logDir, fmt.Sprintf("%s_%s_prompt_debug.txt", tsz, key))
+	_ = os.WriteFile(path, []byte(prompt), 0o644)
+}
+
 func usableHeuristic(exit int, stderrClean string) bool {
 	if exit != 0 {
 		return false
@@ -653,7 +660,7 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	}
 
 	// 任务描述
-	b.WriteString("\nTASK: Analyze the following alert and provide root cause analysis.\n")
+	b.WriteString("\n## TASK: Analyze the following alert and provide root cause analysis\n\n")
 	b.WriteString("You are an AIOps root cause analysis assistant. Your role is to:\n")
 	b.WriteString("1. Perform ALL relevant prechecks using available MCP servers to gather comprehensive data\n")
 	b.WriteString("2. Execute additional checks as needed to validate root cause hypothesis\n")
@@ -668,6 +675,17 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	b.WriteString("- elasticsearch_mcp_server: Query Elasticsearch logs and data\n")
 	b.WriteString("- awslabscloudwatch_mcp_server: Access AWS CloudWatch metrics\n")
 	b.WriteString("- alertmanager: Manage alert configurations and status\n\n")
+
+	b.WriteString("## CRITICAL: You must provide your final analysis in the following JSON format:\n")
+	b.WriteString("```json\n")
+	b.WriteString("{\n")
+	b.WriteString("  \"root_cause\": \"string describing the likely root cause based on comprehensive metrics analysis\",\n")
+	b.WriteString("  \"evidence\": [\"array\", \"of\", \"supporting\", \"evidence\", \"from\", \"metrics\", \"and\", \"logs\"],\n")
+	b.WriteString("  \"confidence\": 0.0,\n")
+	b.WriteString("  \"suggested_actions\": [\"array\", \"of\", \"specific\", \"recommended\", \"actions\", \"based\", \"on\", \"complete\", \"analysis\"],\n")
+	b.WriteString("  \"analysis_summary\": \"brief summary of your investigation process and findings\"\n")
+	b.WriteString("}\n")
+	b.WriteString("```\n\n")
 	b.WriteString("Analyze the following alert and provide a JSON response.\n\n")
 
 	// 告警数据
@@ -746,10 +764,7 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 	prompt := buildPrompt(alert, sopText, historicalContextEntries, userJSON)
 
 	// 调试：记录喂给 Q 的 prompt
-	writeDebugLogs(s.logDir, key, prompt, "", map[string]any{
-		"kind": "prompt_debug",
-		"ts":   time.Now().UTC().Format(time.RFC3339),
-	})
+	writePromptDebug(s.logDir, key, prompt)
 
 	// 调用 q
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
