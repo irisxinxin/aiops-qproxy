@@ -16,7 +16,6 @@ Environment=QDATA_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/data
 # SOP 配置
 Environment=Q_SOP_DIR=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/ctx/sop
 Environment=Q_SOP_PREPEND=1
-Environment=Q_FALLBACK_CTX=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/aiops-fallback-sop/fallback_ctx/fallback_ctx.jsonl
 
 # 输出控制
 Environment=NO_COLOR=1
@@ -29,7 +28,7 @@ Environment=Q_MCP_SKIP_TRUST_PROMPTS=true
 Environment=Q_TOOLS_AUTO_TRUST=true
 
 WorkingDirectory=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4
-ExecStart=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/bin/qproxy-runner --http --listen=:8080
+ExecStart=/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4/bin/qproxy-runner --listen=:8080
 Restart=always
 RestartSec=2
 User=ubuntu

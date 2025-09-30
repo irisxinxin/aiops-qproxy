@@ -27,4 +27,4 @@ echo "   自动信任: 已启用"
 echo
 
 # 前台运行以便看到输出
-./bin/qproxy-runner --http --listen=:8080
+./bin/qproxy-runner --listen=:8080

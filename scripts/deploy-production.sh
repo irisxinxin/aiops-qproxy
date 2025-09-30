@@ -56,7 +56,6 @@ required_files=(
     "$TARGET_DIR/bin/qproxy-runner"
     "$TARGET_DIR/ctx/sop/omada_sop_full.jsonl"
     "$TARGET_DIR/ctx/sop/vigi_sop_full.jsonl"
-    "$TARGET_DIR/aiops-fallback-sop/fallback_ctx/fallback_ctx.jsonl"
     "$TARGET_DIR/systemd/aiops-qproxy-runner.service"
 )
 

@@ -78,7 +78,7 @@ case $choice in
         Q_SOP_DIR="$PROJECT_DIR/ctx/sop" \
         Q_SOP_PREPEND=1 \
         Q_BIN="/bin/cat" \
-        ./bin/qproxy-runner --http --listen=":$HTTP_PORT" &
+        ./bin/qproxy-runner --listen=":$HTTP_PORT" &
         
         SERVER_PID=$!
         echo "HTTP 服务已启动，PID: $SERVER_PID"
