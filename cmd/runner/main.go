@@ -647,20 +647,8 @@ func replaceSOPTemplates(sop string, a Alert) string {
 func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	var b strings.Builder
 
-	// 添加历史上下文文件（如果有）
-	if strings.TrimSpace(historicalEntries) != "" {
-		b.WriteString(historicalEntries)
-	}
-
-	// 添加 SOP 上下文（如果有）
-	if strings.TrimSpace(sop) != "" {
-		b.WriteString("\n# SOP Knowledge\n")
-		b.WriteString(sop)
-		b.WriteString("\n")
-	}
-
-	// 任务描述
-	b.WriteString("\n## TASK: Analyze the following alert and provide root cause analysis\n\n")
+	// 任务描述 - 放在最前面
+	b.WriteString("## TASK: Analyze the following alert and provide root cause analysis\n\n")
 	b.WriteString("You are an AIOps root cause analysis assistant. Your role is to:\n")
 	b.WriteString("1. Perform ALL relevant prechecks using available MCP servers to gather comprehensive data\n")
 	b.WriteString("2. Execute additional checks as needed to validate root cause hypothesis\n")
@@ -669,12 +657,6 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	b.WriteString("5. Provide actionable recommendations based on complete analysis\n\n")
 	b.WriteString("IMPORTANT: Continue analysis until you have conclusive evidence. Don't just suggest checks - execute them.\n")
 	b.WriteString("EFFICIENCY NOTE: Limit tools to 3-5 key queries, focus on most impactful evidence.\n\n")
-	b.WriteString("Available MCP servers:\n")
-	b.WriteString("- victoriametrics: Query VictoriaMetrics for Kubernetes and application metrics\n")
-	b.WriteString("- awslabseks_mcp_server: Manage EKS clusters and check pod status\n")
-	b.WriteString("- elasticsearch_mcp_server: Query Elasticsearch logs and data\n")
-	b.WriteString("- awslabscloudwatch_mcp_server: Access AWS CloudWatch metrics\n")
-	b.WriteString("- alertmanager: Manage alert configurations and status\n\n")
 
 	b.WriteString("## CRITICAL: You must provide your final analysis in the following JSON format:\n")
 	b.WriteString("```json\n")
@@ -686,22 +668,22 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	b.WriteString("  \"analysis_summary\": \"brief summary of your investigation process and findings\"\n")
 	b.WriteString("}\n")
 	b.WriteString("```\n\n")
-	b.WriteString("Analyze the following alert and provide a JSON response.\n\n")
+
+	// 添加 SOP 上下文（如果有）- 简化格式，放在前面作为参考
+	if strings.TrimSpace(sop) != "" {
+		b.WriteString("\n## Prechecks to perform:\n")
+		b.WriteString(sop)
+		b.WriteString("\n")
+	}
+
+	// 添加历史上下文文件（如果有）
+	if strings.TrimSpace(historicalEntries) != "" {
+		b.WriteString(historicalEntries)
+	}
 
 	// 告警数据
-	b.WriteString("Alert to analyze:\n")
+	b.WriteString("\nAlert to analyze:\n")
 	b.WriteString(userJSON)
-	b.WriteString("\n\n")
-
-	// 输出要求
-	b.WriteString("After completing your analysis, provide a JSON response with the following structure:\n")
-	b.WriteString("{\n")
-	b.WriteString("  \"root_cause\": \"string describing the likely root cause based on comprehensive metrics analysis\",\n")
-	b.WriteString("  \"evidence\": [\"array\", \"of\", \"supporting\", \"evidence\", \"from\", \"metrics\", \"and\", \"logs\"],\n")
-	b.WriteString("  \"confidence\": 0.0,\n")
-	b.WriteString("  \"suggested_actions\": [\"array\", \"of\", \"specific\", \"recommended\", \"actions\", \"based\", \"on\", \"complete\", \"analysis\"],\n")
-	b.WriteString("  \"analysis_summary\": \"brief summary of your investigation process and findings\"\n")
-	b.WriteString("}\n")
 
 	return b.String()
 }
