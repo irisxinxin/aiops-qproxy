@@ -3,10 +3,17 @@ bin/
 logs/
 *.log
 *.out
+
+# context files (generated during runtime)
+ctx/final/
+ctx/auto/
+
 # editors
 .vscode/
 .idea/
+
 # OS
 .DS_Store
+
 # swap
 **/*.swp
