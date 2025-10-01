@@ -24,3 +24,6 @@ EFFICIENCY NOTE: Limit tools to 3-5 key queries, focus on most impactful evidenc
   "analysis_summary": "brief summary of your investigation process and findings"
 }
 ```
+
+## START ANALYSIS IMMEDIATELY
+Do not ask for more information. Begin analysis right away using the alert data provided.

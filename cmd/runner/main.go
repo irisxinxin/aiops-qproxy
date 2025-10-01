@@ -653,24 +653,25 @@ func replaceSOPTemplates(sop string, a Alert) string {
 func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
 	var b strings.Builder
 
-	// 添加任务指令上下文
-	b.WriteString("/context add ctx/task_instructions.md\n")
+	// 1. 先加载任务指令
+	b.WriteString("/context add ctx/task_instructions.md\n\n")
 
-	// 添加 SOP 上下文（如果有）- 简化格式，放在前面作为参考
+	// 2. 告警数据
+	b.WriteString("## Alert to Analyze:\n")
+	b.WriteString(userJSON)
+	b.WriteString("\n\n")
+
+	// 3. SOP 内容（简化格式）
 	if strings.TrimSpace(sop) != "" {
-		b.WriteString("\n## Prechecks to perform:\n")
+		b.WriteString("## Reference SOP:\n")
 		b.WriteString(sop)
 		b.WriteString("\n")
 	}
 
-	// 添加历史上下文文件（如果有）
+	// 4. 历史上下文文件（如果有）
 	if strings.TrimSpace(historicalEntries) != "" {
 		b.WriteString(historicalEntries)
 	}
-
-	// 告警数据
-	b.WriteString("\nAnalyze this alert and provide JSON response:\n")
-	b.WriteString(userJSON)
 
 	return b.String()
 }
