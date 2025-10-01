@@ -74,6 +74,33 @@ func mustMkdirAll(p string) {
 	_ = os.MkdirAll(p, 0o755)
 }
 
+func readFileSafe(p string) string {
+	b, err := os.ReadFile(p)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// UTF-8 按字节截断（尽量在换行处）
+func trimToBytesUTF8(s string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	b := []byte(s)
+	if len(b) <= limit {
+		return s
+	}
+	cut := limit
+	for i := limit - 1; i >= 0 && i >= limit-256; i-- {
+		if b[i] == '\n' {
+			cut = i
+			break
+		}
+	}
+	return string(b[:cut]) + "\n..."
+}
+
 func readAllStdin() ([]byte, error) {
 	var b bytes.Buffer
 	_, err := io.Copy(&b, os.Stdin)
@@ -345,20 +372,92 @@ func loadHistoricalContexts(ctxDir, key string, maxCount int) ([]ContextEntry, e
 	return entries, nil
 }
 
-func buildHistoricalContextEntries(entries []ContextEntry) string {
+// 构建历史上下文摘要
+func buildHistoricalSummary(ctxDir, key string, docs int, totalBudget, perDoc int) string {
+	if docs <= 0 || totalBudget <= 0 || perDoc <= 0 {
+		return ""
+	}
+	entries, _ := loadHistoricalContexts(ctxDir, key, docs)
 	if len(entries) == 0 {
 		return ""
 	}
 
-	var b strings.Builder
-	// 最多添加3个历史记录文件
-	for i, entry := range entries {
-		if i >= 3 {
+	var out strings.Builder
+	out.WriteString("## Prior Incidents (summarized)\n")
+	remain := totalBudget
+	per := perDoc
+	if per*len(entries) > totalBudget {
+		per = totalBudget / len(entries)
+		if per <= 0 {
+			per = totalBudget
+		}
+	}
+	for _, e := range entries {
+		payload := readFileSafe(e.Path)
+		if payload == "" {
+			continue
+		}
+		out.WriteString("- from: " + e.Path + "\n")
+		if js, ok := extractFirstJSONObject(payload); ok {
+			js = trimToBytesUTF8(js, per)
+			out.WriteString("```json\n" + js + "\n```\n")
+		} else {
+			snip := trimToBytesUTF8(payload, per)
+			out.WriteString(snip + "\n")
+		}
+		remain -= per
+		if remain <= 0 {
 			break
 		}
-		b.WriteString("/context add " + entry.Path + "\n")
 	}
-	return b.String()
+	return out.String()
+}
+
+// 抓首个完整 JSON（用于历史和模型输出）
+func extractFirstJSONObject(s string) (string, bool) {
+	type st struct {
+		inStr, esc   bool
+		depth, start int
+	}
+	runes := []rune(s)
+	var state st
+	state.start = -1
+	for i, r := range runes {
+		if state.inStr {
+			if state.esc {
+				state.esc = false
+				continue
+			}
+			if r == '\\' {
+				state.esc = true
+				continue
+			}
+			if r == '"' {
+				state.inStr = false
+			}
+			continue
+		}
+		if r == '"' {
+			state.inStr = true
+			continue
+		}
+		if r == '{' {
+			if state.depth == 0 {
+				state.start = i
+			}
+			state.depth++
+			continue
+		}
+		if r == '}' {
+			if state.depth > 0 {
+				state.depth--
+				if state.depth == 0 && state.start >= 0 {
+					return string(runes[state.start : i+1]), true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 // =========== q 进程执行 ===========
@@ -650,27 +749,55 @@ func replaceSOPTemplates(sop string, a Alert) string {
 	return sop
 }
 
-func buildPrompt(a Alert, sop, historicalEntries, userJSON string) string {
+// 读取任务指令文档并按预算裁剪
+func loadTaskDocInline(path string, budget, minKeep int) string {
+	doc := strings.TrimSpace(readFileSafe(path))
+	if doc == "" {
+		return ""
+	}
+	limit := budget
+	if limit < minKeep {
+		limit = minKeep
+	}
+	return trimToBytesUTF8(doc, limit)
+}
+
+// 构造：任务指令 + 告警JSON + 历史摘要 + SOP
+func buildPrompt(a Alert, sop, historicalEntries, userJSON, workdir string) string {
 	var b strings.Builder
 
-	// 1. 先加载任务指令
-	b.WriteString("/context add ctx/task_instructions.md\n\n")
+	// 1. 任务指令（内联）
+	taskInstructionsPath := filepath.Join(workdir, "ctx", "task_instructions.md")
+	taskDoc := loadTaskDocInline(taskInstructionsPath, 4096, 800)
+
+	b.WriteString("You are an AIOps root-cause assistant.\n")
+	b.WriteString("This is a SINGLE-TURN request. All data is COMPLETE below.\n")
+	b.WriteString("DO NOT ask me to continue. Start now and return ONLY the final JSON.\n\n")
+
+	if strings.TrimSpace(taskDoc) != "" {
+		b.WriteString("## TASK INSTRUCTIONS (verbatim)\n")
+		b.WriteString(taskDoc)
+		b.WriteString("\n\n")
+	}
 
 	// 2. 告警数据
-	b.WriteString("## Alert to Analyze:\n")
+	b.WriteString("## ALERT JSON (complete)\n")
 	b.WriteString(userJSON)
 	b.WriteString("\n\n")
+	b.WriteString("Output MUST be a single JSON object and nothing else.\n")
 
-	// 3. SOP 内容（简化格式）
-	if strings.TrimSpace(sop) != "" {
-		b.WriteString("## Reference SOP:\n")
-		b.WriteString(sop)
+	// 3. 历史上下文摘要（如果有）
+	if strings.TrimSpace(historicalEntries) != "" {
+		b.WriteString("\n## Prior Incidents (summarized)\n")
+		b.WriteString(historicalEntries)
 		b.WriteString("\n")
 	}
 
-	// 4. 历史上下文文件（如果有）
-	if strings.TrimSpace(historicalEntries) != "" {
-		b.WriteString(historicalEntries)
+	// 4. SOP 内容（作为参考）
+	if strings.TrimSpace(sop) != "" {
+		b.WriteString("\n## SOP (Reference)\n")
+		b.WriteString(sop)
+		b.WriteString("\n")
 	}
 
 	return b.String()
@@ -726,12 +853,11 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 		sopText, _ = buildSopContext(alert, s.sopDir)
 	}
 
-	// 加载历史上下文（最多5条记录）
-	historicalEntries, _ := loadHistoricalContexts(s.ctxDir, key, 5)
-	historicalContextEntries := buildHistoricalContextEntries(historicalEntries)
+	// 构建历史上下文摘要
+	historicalSummary := buildHistoricalSummary(s.ctxDir, key, 3, 3000, 1200)
 
 	// 组装 prompt
-	prompt := buildPrompt(alert, sopText, historicalContextEntries, userJSON)
+	prompt := buildPrompt(alert, sopText, historicalSummary, userJSON, s.workdir)
 
 	// 调试：记录喂给 Q 的 prompt
 	writePromptDebug(s.logDir, key, prompt)
