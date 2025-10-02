@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -466,7 +467,7 @@ func runQ(ctx context.Context, qbin string, prompt string) (string, string, int,
 	if strings.TrimSpace(qbin) == "" {
 		return "", "", -1, errors.New("Q_BIN 未设置")
 	}
-	cmd := exec.CommandContext(ctx, qbin) // 具体参数按你现场 CLI 风格自行调整
+	cmd := exec.CommandContext(ctx, qbin, "chat", "--no-interactive", "--trust-all-tools") // 具体参数按你现场 CLI 风格自行调整
 	// 传环境以抑制色彩
 	cmd.Env = append(os.Environ(),
 		"NO_COLOR=1", "CLICOLOR=0", "TERM=dumb",
@@ -815,6 +816,7 @@ type Server struct {
 }
 
 func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
+	log.Printf("DEBUG: handleAlert called")
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -822,6 +824,7 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 
 	// 读取告警 JSON
 	raw, err := io.ReadAll(r.Body)
+	log.Printf("DEBUG: Read %d bytes from body", len(raw))
 	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
 		http.Error(w, "解析告警JSON失败: unexpected end of JSON input", http.StatusBadRequest)
 		return
@@ -832,6 +835,7 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("解析告警JSON失败: %v", err), http.StatusBadRequest)
 		return
 	}
+	log.Printf("DEBUG: Alert parsed successfully: %s", alert.Service)
 
 	// 阈值归一化成字符串
 	thStr := jsonRawToString(alert.Threshold)
@@ -846,26 +850,33 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 
 	// 规范化 key（用于日志/落盘）
 	key := normKey(alert)
+	log.Printf("DEBUG: Generated key: %s", key)
 
 	// 预加载 SOP + 历史上下文 + fallback
 	var sopText string
 	if s.sopPrepend {
 		sopText, _ = buildSopContext(alert, s.sopDir)
 	}
+	log.Printf("DEBUG: Built SOP context")
 
 	// 构建历史上下文摘要
 	historicalSummary := buildHistoricalSummary(s.ctxDir, key, 3, 3000, 1200)
+	log.Printf("DEBUG: Built historical summary")
 
 	// 组装 prompt
 	prompt := buildPrompt(alert, sopText, historicalSummary, userJSON, s.workdir)
+	log.Printf("DEBUG: Built prompt, length: %d", len(prompt))
 
 	// 调试：记录喂给 Q 的 prompt
 	writePromptDebug(s.logDir, key, prompt)
+	log.Printf("DEBUG: Wrote prompt debug")
 
 	// 调用 q
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // 减少超时时间
 	defer cancel()
+	log.Printf("DEBUG: About to call runQ")
 	stdout, stderr, exitCode, runErr := runQ(ctx, s.qbin, prompt)
+	log.Printf("DEBUG: runQ completed with exit code: %d", exitCode)
 
 	// 清洗 ANSI / 控制符
 	stdoutClean := cleanANSI(stdout)
@@ -910,6 +921,7 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 		response["error"] = runErr.Error()
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
