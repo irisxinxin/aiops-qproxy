@@ -360,8 +360,11 @@ func loadHistoricalContexts(ctxDir, key string, maxCount int) ([]ContextEntry, e
 		}
 	}
 
-	// 按时间戳排序（最新的在前）
+	// 按质量分数排序（分数高的在前），分数相同则按时间戳排序（最新的在前）
 	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Quality != entries[j].Quality {
+			return entries[i].Quality > entries[j].Quality
+		}
 		return entries[i].Timestamp.After(entries[j].Timestamp)
 	})
 
@@ -631,14 +634,17 @@ func cleanupOldEntries(ctxDir, key string, maxEntries int) {
 		}
 	}
 
-	// 如果条目数量超过限制，删除最旧的
+	// 如果条目数量超过限制，删除质量分数最低的
 	if len(entries) > maxEntries {
-		// 按时间戳排序（最新的在前）
+		// 按质量分数排序（分数高的在前），分数相同则按时间戳排序（最新的在前）
 		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].Quality != entries[j].Quality {
+				return entries[i].Quality > entries[j].Quality
+			}
 			return entries[i].Timestamp.After(entries[j].Timestamp)
 		})
 
-		// 删除超出的条目
+		// 删除超出的条目（保留质量分数最高的）
 		toDelete := entries[maxEntries:]
 		for _, entry := range toDelete {
 			// 删除文件
@@ -763,7 +769,7 @@ func loadTaskDocInline(path string, budget, minKeep int) string {
 	return trimToBytesUTF8(doc, limit)
 }
 
-// 构造：任务指令 + 告警JSON + 历史摘要 + SOP
+// 构造：任务指令 + 告警JSON + SOP + 历史摘要
 func buildPrompt(a Alert, sop, historicalEntries, userJSON, workdir string) string {
 	var b strings.Builder
 
@@ -787,17 +793,17 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON, workdir string) stri
 	b.WriteString("\n\n")
 	b.WriteString("Output MUST be a single JSON object and nothing else.\n")
 
-	// 3. 历史上下文摘要（如果有）
-	if strings.TrimSpace(historicalEntries) != "" {
-		b.WriteString("\n## Prior Incidents (summarized)\n")
-		b.WriteString(historicalEntries)
-		b.WriteString("\n")
-	}
-
-	// 4. SOP 内容（作为参考）
+	// 3. SOP 内容（作为参考）
 	if strings.TrimSpace(sop) != "" {
 		b.WriteString("\n## SOP (Reference)\n")
 		b.WriteString(sop)
+		b.WriteString("\n")
+	}
+
+	// 4. 历史上下文摘要（如果有）
+	if strings.TrimSpace(historicalEntries) != "" {
+		b.WriteString("\n## Prior Incidents (summarized)\n")
+		b.WriteString(historicalEntries)
 		b.WriteString("\n")
 	}
 
@@ -859,8 +865,8 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("DEBUG: Built SOP context")
 
-	// 构建历史上下文摘要
-	historicalSummary := buildHistoricalSummary(s.ctxDir, key, 3, 3000, 1200)
+	// 构建历史上下文摘要（只取最新一条）
+	historicalSummary := buildHistoricalSummary(s.ctxDir, key, 1, 3000, 1200)
 	log.Printf("DEBUG: Built historical summary")
 
 	// 组装 prompt
@@ -896,8 +902,8 @@ func (s *Server) handleAlert(w http.ResponseWriter, r *http.Request) {
 	// 可复用 ctx 判定 & 落盘（把"用户规范化 alert + SOP 选择 + 模型返回"整合为可复用知识）
 	if runErr == nil && usableHeuristic(exitCode, stderrClean) {
 		reusable := composeReusableContext(alert, sopText, stdoutClean)
-		// 每个告警类型最多保留10条记录
-		if _, err := persistReusableCtx(s.ctxDir, key, reusable, 10); err != nil {
+		// 每个告警类型最多保留5条记录
+		if _, err := persistReusableCtx(s.ctxDir, key, reusable, 5); err != nil {
 			// 不致命
 		}
 	}
