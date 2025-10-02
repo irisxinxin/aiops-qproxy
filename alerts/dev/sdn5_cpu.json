@@ -1,0 +1,33 @@
+{
+  "status": "firing",
+  "env": "dev",
+  "region": "dev-nbu-aps1",
+  "service": "sdn5",
+  "category": "cpu",
+  "severity": "critical",
+  "title": "sdn5 container CPU usage is too high",
+  "group_id": "sdn5_critical",
+  "window": "5m",
+  "duration": "15m",
+  "threshold": 0.9,
+  "metadata": {
+    "alert_name": "sdn5 container CPU usage is too high",
+    "alertgroup": "sdn5",
+    "alertname": "sdn5 container CPU usage is too high",
+    "auto_create_group": false,
+    "comparison": ">",
+    "container": "omada-device-gateway",
+    "datasource_cluster": "dev-nbu-aps1",
+    "department": "[ERD|Networking Solutions|Network Services]",
+    "duration": "300s",
+    "expression": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)>0.9",
+    "group_id": "sdn5_critical",
+    "pod": "omada-device-gateway-6.0.0189-59ccd49449-98n7b",
+    "prometheus": "monitoring/kps-prometheus",
+    "service_name": "sdn5",
+    "severity": "critical",
+    "tel_up": "30m",
+    "threshold_value": 0.9,
+    "current_value": 0.92
+  }
+}
