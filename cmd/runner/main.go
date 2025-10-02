@@ -779,7 +779,8 @@ func buildPrompt(a Alert, sop, historicalEntries, userJSON, workdir string) stri
 
 	b.WriteString("You are an AIOps root-cause assistant.\n")
 	b.WriteString("This is a SINGLE-TURN request. All data is COMPLETE below.\n")
-	b.WriteString("DO NOT ask me to continue. Start now and return ONLY the final JSON.\n\n")
+	b.WriteString("DO NOT ask me to continue. Start now and return ONLY the final JSON.\n")
+	b.WriteString("CRITICAL: Your response must contain ONLY the final JSON result with structured tool_calls array, no process descriptions, no markdown formatting.\n\n")
 
 	if strings.TrimSpace(taskDoc) != "" {
 		b.WriteString("## TASK INSTRUCTIONS (verbatim)\n")
