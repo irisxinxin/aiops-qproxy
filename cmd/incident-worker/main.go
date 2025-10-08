@@ -43,7 +43,7 @@ func main() {
 		WSUser:    user,
 		WSPass:    pass,
 		IdleTO:    60 * time.Second,
-		Handshake: 10 * time.Second,
+		Handshake: 60 * time.Second, // 增加到60秒，给Q CLI足够时间准备
 	}
 
 	p, err := pool.New(ctx, n, qo)

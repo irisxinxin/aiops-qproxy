@@ -128,8 +128,8 @@ WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
 
-# 等待服务启动并检查
-sleep 3
+# 等待服务启动并检查（Q CLI 需要时间准备）
+sleep 10
 if ! ss -tlnp | grep -q ":8080 "; then
     echo "❌ incident-worker 启动失败"
     echo "📝 查看详细日志："

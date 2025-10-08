@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -59,7 +60,16 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{conn: conn}
-	_, _ = c.readUntilPrompt(ctx, opt.ReadIdleTO)
+
+	// 增加超时和错误处理，给Q CLI足够时间准备
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to read initial prompt: %v", err)
+	}
 	return c, nil
 }
 
