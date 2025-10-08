@@ -53,9 +53,10 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 	// 尝试从池中获取连接
 	select {
 	case s := <-p.slots:
-		// 检查连接是否过期或失效
-		if p.isSessionExpired(s) || !p.isSessionValid(s) {
-			// 连接已过期或失效，重新创建
+		// 只检查连接是否过期，不进行健康检查
+		// 健康检查可能会触发连接断开，在实际使用时处理连接错误
+		if p.isSessionExpired(s) {
+			// 连接已过期，重新创建
 			p.mu.Lock()
 			delete(p.sessionTimes, s)
 			p.mu.Unlock()
