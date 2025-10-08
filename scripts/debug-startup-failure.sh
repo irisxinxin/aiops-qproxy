@@ -31,5 +31,6 @@ export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
 export QPROXY_WS_INSECURE_TLS=0
 
-echo "▶️  手动启动调试版本（10秒后自动停止）："
-timeout 10s ./bin/incident-worker-debug 2>&1 || echo "程序退出或超时"
+echo "▶️  手动启动调试版本（30秒后自动停止）："
+echo "   如果30秒内没有看到 'HTTP 服务器启动成功'，说明连接池初始化失败"
+timeout 30s ./bin/incident-worker-debug 2>&1 || echo "程序退出或超时"
