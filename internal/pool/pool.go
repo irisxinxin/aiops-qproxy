@@ -92,8 +92,8 @@ func (p *Pool) isSessionExpired(s *qflow.Session) bool {
 
 // 检查会话是否有效
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
-	// 使用更轻量的健康检查
-	_, err := s.AskOnce("echo test")
+	// 使用更轻量的健康检查 - 使用 Q CLI 支持的命令
+	_, err := s.AskOnce("/context")
 	if err != nil {
 		// 如果是连接错误，立即返回false，让连接池重新创建连接
 		return false
@@ -121,24 +121,20 @@ func (l *Lease) Release() {
 
 // 维护池大小，确保池中始终有足够的连接
 func (p *Pool) maintainPoolSize() {
-	// 检查当前池大小（线程安全）
-	p.mu.RLock()
-	currentSize := len(p.slots)
-	targetSize := p.targetSize
-	p.mu.RUnlock()
-
-	if currentSize >= targetSize {
-		return // 池大小正常，不需要补充
-	}
-
 	// 需要补充连接
-	needed := targetSize - currentSize
+	needed := 1 // 每次只补充一个连接，避免竞态条件
+
 	for i := 0; i < needed; i++ {
 		if s, err := qflow.New(context.Background(), p.opts); err == nil {
-			p.slots <- s
-			p.mu.Lock()
-			p.sessionTimes[s] = time.Now()
-			p.mu.Unlock()
+			// 尝试放入连接，如果池已满则丢弃
+			select {
+			case p.slots <- s:
+				p.mu.Lock()
+				p.sessionTimes[s] = time.Now()
+				p.mu.Unlock()
+			default:
+				// 池已满，丢弃这个连接
+			}
 		}
 	}
 }

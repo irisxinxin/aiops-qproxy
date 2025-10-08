@@ -142,6 +142,11 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
 		if err := c.SendLine(prompt); err != nil {
+			// 如果是连接错误，立即返回，让连接池重新创建连接
+			if isConnectionError(err) {
+				return "", err
+			}
+
 			if i == maxRetries-1 {
 				return "", fmt.Errorf("failed to send prompt after %d retries: %v", maxRetries, err)
 			}
@@ -153,6 +158,11 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		// 尝试读取响应
 		response, err := c.readUntilPrompt(ctx, idle)
 		if err != nil {
+			// 如果是连接错误，立即返回，让连接池重新创建连接
+			if isConnectionError(err) {
+				return "", err
+			}
+
 			if i == maxRetries-1 {
 				return "", fmt.Errorf("failed to read response after %d retries: %v", maxRetries, err)
 			}
@@ -165,4 +175,29 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	}
 
 	return "", errors.New("unexpected error in Ask method")
+}
+
+// 判断是否为连接错误
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	connectionErrors := []string{
+		"broken pipe",
+		"connection reset",
+		"connection refused",
+		"network is unreachable",
+		"i/o timeout",
+		"use of closed network connection",
+	}
+
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
+			return true
+		}
+	}
+
+	return false
 }
