@@ -106,9 +106,15 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			continue
 		}
 		buf.Write(data)
-		if bytes.Contains(buf.Bytes(), []byte("\n> ")) {
-			out := buf.String()
-			return out, nil
+		// 检查多种可能的提示符格式
+		dataStr := buf.String()
+		if bytes.Contains(buf.Bytes(), []byte("\n> ")) ||
+			bytes.Contains(buf.Bytes(), []byte("> ")) ||
+			bytes.Contains(buf.Bytes(), []byte("q> ")) ||
+			bytes.Contains(buf.Bytes(), []byte("\nq> ")) ||
+			bytes.Contains(buf.Bytes(), []byte("$ ")) ||
+			bytes.Contains(buf.Bytes(), []byte("\n$ ")) {
+			return dataStr, nil
 		}
 
 		// 更新 deadline，但不超过 context 的超时
