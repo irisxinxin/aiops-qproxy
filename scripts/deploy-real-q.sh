@@ -120,7 +120,14 @@ echo "incident-worker PID: $WORKER_PID"
 sleep 3
 if ! ss -tlnp | grep -q ":8080 "; then
     echo "❌ incident-worker 启动失败"
+    echo "📝 查看详细日志："
     cat ./logs/incident-worker-real.log
+    echo ""
+    echo "🔍 检查进程状态："
+    ps aux | grep incident-worker | grep -v grep || echo "  没有 incident-worker 进程"
+    echo ""
+    echo "🔍 检查端口状态："
+    ss -tlnp | grep -E ":7682|:8080" || echo "  没有相关端口在监听"
     exit 1
 fi
 echo "✅ incident-worker 启动成功"
@@ -131,6 +138,16 @@ if curl -s http://127.0.0.1:8080/healthz | grep -q "ok"; then
     echo "✅ incident-worker 健康检查通过"
 else
     echo "❌ incident-worker 健康检查失败"
+    echo "📝 查看最新日志："
+    tail -20 ./logs/incident-worker-real.log
+    echo ""
+    echo "🔍 手动测试健康检查："
+    curl -v http://127.0.0.1:8080/healthz || echo "  连接失败"
+    echo ""
+    echo "💡 建议："
+    echo "  1. 检查 incident-worker 是否真的在运行"
+    echo "  2. 检查端口 8080 是否被占用"
+    echo "  3. 查看完整日志: cat ./logs/incident-worker-real.log"
     exit 1
 fi
 
