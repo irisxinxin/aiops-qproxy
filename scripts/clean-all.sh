@@ -22,6 +22,24 @@ sudo lsof -ti:7682 | xargs sudo kill -9 2>/dev/null || true
 sudo lsof -ti:8080 | xargs sudo kill -9 2>/dev/null || true
 sleep 2
 
+# 4. 如果 8080 端口还在，用更强制的方法
+if ss -tlnp | grep -q ":8080 "; then
+    echo "🔥 8080 端口还在，使用更强制的方法..."
+    # 找到占用 8080 的进程
+    PID=$(sudo lsof -ti:8080 2>/dev/null)
+    if [ ! -z "$PID" ]; then
+        echo "   杀死进程 $PID"
+        sudo kill -9 $PID 2>/dev/null || true
+    fi
+    # 使用 netstat 找到进程
+    PID=$(sudo netstat -tlnp | grep ":8080 " | awk '{print $7}' | cut -d'/' -f1)
+    if [ ! -z "$PID" ] && [ "$PID" != "-" ]; then
+        echo "   杀死进程 $PID"
+        sudo kill -9 $PID 2>/dev/null || true
+    fi
+    sleep 2
+fi
+
 # 4. 检查清理结果
 echo "🔍 检查清理结果..."
 echo "端口 7682:"

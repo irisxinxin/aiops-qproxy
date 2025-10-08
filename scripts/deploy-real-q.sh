@@ -20,6 +20,19 @@ else
     sleep 2
 fi
 
+# 特别处理 8080 端口（如果还在占用）
+if ss -tlnp | grep -q ":8080 "; then
+    echo "🔥 8080 端口还在占用，强制清理..."
+    # 使用多种方法清理 8080
+    sudo lsof -ti:8080 | xargs sudo kill -9 2>/dev/null || true
+    PID=$(sudo netstat -tlnp | grep ":8080 " | awk '{print $7}' | cut -d'/' -f1)
+    if [ ! -z "$PID" ] && [ "$PID" != "-" ]; then
+        echo "   杀死进程 $PID"
+        sudo kill -9 $PID 2>/dev/null || true
+    fi
+    sleep 2
+fi
+
 echo "✅ 端口清理完成"
 
 # 检查依赖
