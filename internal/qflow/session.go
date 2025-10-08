@@ -14,11 +14,12 @@ type Session struct {
 }
 
 type Opts struct {
-	WSURL     string
-	WSUser    string
-	WSPass    string
-	IdleTO    time.Duration
-	Handshake time.Duration
+	WSURL       string
+	WSUser      string
+	WSPass      string
+	InsecureTLS bool
+	IdleTO      time.Duration
+	Handshake   time.Duration
 }
 
 func New(ctx context.Context, o Opts) (*Session, error) {
@@ -26,6 +27,7 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 		Endpoint:    o.WSURL,
 		Username:    o.WSUser,
 		Password:    o.WSPass,
+		InsecureTLS: o.InsecureTLS,
 		HandshakeTO: o.Handshake,
 		ReadIdleTO:  o.IdleTO,
 	})
