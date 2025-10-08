@@ -4,10 +4,10 @@ echo "🧹 彻底清理所有相关进程和端口..."
 
 # 1. 停止所有相关进程
 echo "🛑 停止所有相关进程..."
-pkill -f 'ttyd' || true
-pkill -f 'incident-worker' || true
-pkill -f 'mock-ttyd' || true
-pkill -f 'q chat' || true
+sudo pkill -f 'ttyd' || true
+sudo pkill -f 'incident-worker' || true
+sudo pkill -f 'mock-ttyd' || true
+sudo pkill -f 'q chat' || true
 sleep 3
 
 # 2. 强制清理端口

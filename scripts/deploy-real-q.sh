@@ -14,7 +14,7 @@ if [ -f "./scripts/clean-all.sh" ]; then
     ./scripts/clean-all.sh
 else
     echo "🛑 手动清理..."
-    pkill -f 'ttyd\|incident-worker\|mock-ttyd' || true
+    sudo pkill -f 'ttyd\|incident-worker\|mock-ttyd' || true
     sudo fuser -k 7682/tcp 2>/dev/null || true
     sudo fuser -k 8080/tcp 2>/dev/null || true
     sleep 2
