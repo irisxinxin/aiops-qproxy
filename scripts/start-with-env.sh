@@ -33,7 +33,8 @@ fi
 
 # 启动服务
 echo "▶️  启动 incident-worker..."
-env QPROXY_WS_URL=http://127.0.0.1:7682/ws \
+env \
+QPROXY_WS_URL=http://127.0.0.1:7682/ws \
 QPROXY_WS_USER=demo \
 QPROXY_WS_PASS=password123 \
 QPROXY_WS_POOL=5 \

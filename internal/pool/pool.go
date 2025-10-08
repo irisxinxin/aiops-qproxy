@@ -94,9 +94,6 @@ func (p *Pool) isSessionExpired(s *qflow.Session) bool {
 // 检查会话是否有效
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
 	// 使用 echo 命令进行健康检查 - 这是最通用的命令
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	_, err := s.AskOnce("echo test")
 	if err != nil {
 		// 任何错误都认为连接无效

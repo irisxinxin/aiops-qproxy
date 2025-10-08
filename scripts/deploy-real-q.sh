@@ -126,7 +126,8 @@ echo "✅ 编译成功（使用新的超时设置）"
 # 启动服务
 echo "▶️  启动 incident-worker 服务..."
 # 设置环境变量并启动服务
-env QPROXY_WS_URL=http://127.0.0.1:7682/ws \
+env \
+QPROXY_WS_URL=http://127.0.0.1:7682/ws \
 QPROXY_WS_USER=demo \
 QPROXY_WS_PASS=password123 \
 QPROXY_WS_POOL=5 \
