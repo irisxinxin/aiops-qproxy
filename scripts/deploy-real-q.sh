@@ -30,8 +30,8 @@ export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
 export QPROXY_WS_INSECURE_TLS=1
 
-# 创建会话目录
-echo "📁 检查会话目录..."
+# 创建会话目录和日志目录
+echo "📁 检查目录..."
 if [ ! -d "./conversations" ]; then
     echo "创建 conversations 目录..."
     mkdir -p ./conversations
@@ -41,6 +41,15 @@ else
     echo "✅ conversations 目录已存在"
 fi
 
+if [ ! -d "./logs" ]; then
+    echo "创建 logs 目录..."
+    mkdir -p ./logs
+    chmod 755 ./logs
+    echo "✅ logs 目录已创建"
+else
+    echo "✅ logs 目录已存在"
+fi
+
 # 停止现有服务
 echo "🛑 停止现有服务..."
 pkill -f "mock-ttyd\|incident-worker\|ttyd.*q chat" || true
@@ -48,9 +57,9 @@ sleep 2
 
 # 启动真实 ttyd + Q CLI
 echo "🔌 启动真实 ttyd + Q CLI..."
-ttyd -p 7682 -W -c demo:password123 q chat > /tmp/ttyd-q.log 2>&1 &
+ttyd -p 7682 -W -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
-echo $TTYD_PID > /tmp/ttyd-q.pid
+echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"
 
 # 等待 ttyd 启动
@@ -59,9 +68,9 @@ sleep 3
 # 启动 incident-worker
 echo "🚀 启动 incident-worker..."
 cd "$(dirname "$0")/.."
-go run ./cmd/incident-worker > /tmp/incident-worker-real.log 2>&1 &
+go run ./cmd/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
-echo $WORKER_PID > /tmp/incident-worker-real.pid
+echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
 
 # 等待服务启动
@@ -88,8 +97,8 @@ echo "    -H 'content-type: application/json' \\"
 echo "    -d '{\"incident_key\":\"test-real-q\",\"prompt\":\"Hello Q CLI!\"}'"
 echo ""
 echo "📝 日志文件："
-echo "  - ttyd: /tmp/ttyd-q.log"
-echo "  - incident-worker: /tmp/incident-worker-real.log"
+echo "  - ttyd: ./logs/ttyd-q.log"
+echo "  - incident-worker: ./logs/incident-worker-real.log"
 echo ""
 echo "🛑 停止服务："
 echo "  kill $TTYD_PID $WORKER_PID"
