@@ -88,7 +88,30 @@ echo "✅ ttyd 启动成功"
 # 启动 incident-worker
 echo "🚀 启动 incident-worker..."
 cd "$(dirname "$0")/.."
-nohup go run ./cmd/incident-worker > ./logs/incident-worker-real.log 2>&1 &
+
+# 检查 Go 环境
+if ! command -v go &> /dev/null; then
+    echo "❌ Go 未安装"
+    exit 1
+fi
+
+# 检查 Go 模块
+echo "📦 检查 Go 模块..."
+if ! go mod tidy; then
+    echo "❌ Go 模块整理失败"
+    exit 1
+fi
+
+# 尝试编译
+echo "🔨 编译 incident-worker..."
+if ! go build -o ./bin/incident-worker ./cmd/incident-worker; then
+    echo "❌ 编译失败"
+    exit 1
+fi
+
+# 启动服务
+echo "▶️  启动 incident-worker 服务..."
+nohup ./bin/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
