@@ -46,8 +46,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	}
 
 	h := http.Header{}
-	if opt.Username != "" {
-		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(opt.Username+":"+opt.Password)))
+	if opt.Username != "" && opt.Password != "" {
+		auth := opt.Username + ":" + opt.Password
+		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
 	}
 
 	d := websocket.Dialer{

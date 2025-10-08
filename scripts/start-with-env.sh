@@ -31,6 +31,9 @@ else
     exit 1
 fi
 
+# 准备目录
+mkdir -p ./logs ./conversations
+
 # 启动服务
 echo "▶️  启动 incident-worker..."
 env \
@@ -50,8 +53,14 @@ echo "incident-worker PID: $WORKER_PID"
 # 等待服务启动
 sleep 5
 
-# 检查服务状态
-if ss -tlnp | grep -q ":8080 "; then
+# 检查服务状态（兼容无 ss 的环境）
+if command -v ss >/dev/null 2>&1; then
+    LISTEN_OK=$(ss -tlnp 2>/dev/null | grep -q ":8080 " && echo ok || echo fail)
+else
+    LISTEN_OK=$(netstat -an 2>/dev/null | grep -q "*:8080" && echo ok || echo fail)
+fi
+
+if [ "$LISTEN_OK" = "ok" ]; then
     echo "✅ incident-worker 启动成功"
     echo "🧪 测试健康检查..."
     if curl -s http://127.0.0.1:8080/healthz | grep -q "ok"; then
