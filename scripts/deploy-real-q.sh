@@ -13,12 +13,25 @@ echo "🛑 停止所有相关服务..."
 pkill -f 'ttyd.*q chat' || true
 pkill -f 'incident-worker' || true
 pkill -f 'mock-ttyd' || true
+pkill -f 'incident-worker-debug' || true
 sleep 2
 
 # 强制清理端口
 echo "🔧 强制清理端口..."
 sudo fuser -k 7682/tcp 2>/dev/null || true
 sudo fuser -k 8080/tcp 2>/dev/null || true
+sleep 1
+
+# 再次检查端口是否清理干净
+echo "🔍 检查端口清理结果..."
+if ss -tlnp | grep -q ":7682 "; then
+    echo "⚠️  端口 7682 仍被占用，强制杀死进程..."
+    sudo lsof -ti:7682 | xargs sudo kill -9 2>/dev/null || true
+fi
+if ss -tlnp | grep -q ":8080 "; then
+    echo "⚠️  端口 8080 仍被占用，强制杀死进程..."
+    sudo lsof -ti:8080 | xargs sudo kill -9 2>/dev/null || true
+fi
 sleep 1
 
 echo "✅ 端口清理完成"
