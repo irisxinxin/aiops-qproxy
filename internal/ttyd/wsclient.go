@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -45,11 +44,12 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		u.Path = "/ws"
 	}
 
-	h := http.Header{}
+	// 使用 URL 认证而不是 Header 认证（适用于 ttyd 1.7.4）
 	if opt.Username != "" && opt.Password != "" {
-		auth := opt.Username + ":" + opt.Password
-		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
+		u.User = url.UserPassword(opt.Username, opt.Password)
 	}
+
+	h := http.Header{}
 
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
