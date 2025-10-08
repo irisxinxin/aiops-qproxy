@@ -54,9 +54,6 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 // 检查会话是否有效
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
 	// 简单的健康检查：尝试发送一个测试命令
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	_, err := s.AskOnce("echo test")
 	return err == nil
 }
