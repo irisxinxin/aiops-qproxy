@@ -61,5 +61,56 @@ func (s *Session) ContextClear() error {
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {
-	return s.cli.Ask(context.Background(), strings.TrimSpace(prompt), s.opts.IdleTO)
+	// 智能重试机制
+	maxRetries := 3
+	baseDelay := 500 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		response, err := s.cli.Ask(context.Background(), strings.TrimSpace(prompt), s.opts.IdleTO)
+		if err == nil {
+			return response, nil
+		}
+
+		// 检查错误类型，决定是否重试
+		if !isRetryableError(err) {
+			return "", err
+		}
+
+		// 如果是最后一次重试，直接返回错误
+		if i == maxRetries-1 {
+			return "", err
+		}
+
+		// 指数退避重试
+		delay := baseDelay * time.Duration(1<<uint(i))
+		time.Sleep(delay)
+	}
+
+	return "", nil
+}
+
+// 判断错误是否可重试
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	// 网络相关错误可以重试
+	retryableErrors := []string{
+		"broken pipe",
+		"connection reset",
+		"i/o timeout",
+		"connection refused",
+		"network is unreachable",
+		"temporary failure",
+	}
+
+	for _, retryableErr := range retryableErrors {
+		if strings.Contains(errStr, retryableErr) {
+			return true
+		}
+	}
+
+	return false
 }
