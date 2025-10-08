@@ -1,19 +1,47 @@
-# build & logs
-bin/
-logs/
-*.log
+# 会话文件目录
+conversations/
+
+# Go 构建文件
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
 *.out
+go.work
 
-# context files (generated during runtime)
-ctx/final/
-ctx/auto/
+# 依赖目录
+vendor/
 
-# editors
+# IDE 文件
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# OS
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+
+# PID 文件
+*.pid
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# macOS
 .DS_Store
-
-# swap
-**/*.swp
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

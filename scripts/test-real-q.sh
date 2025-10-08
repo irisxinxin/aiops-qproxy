@@ -44,17 +44,26 @@ echo "响应: $RESPONSE3"
 # 检查会话文件
 echo ""
 echo "📁 检查会话文件..."
-if [ -f "/tmp/conversations/_sopmap.json" ]; then
+if [ ! -d "./conversations" ]; then
+    echo "❌ conversations 目录不存在，请先运行 deploy-real-q.sh"
+    exit 1
+fi
+
+if [ -f "./conversations/_sopmap.json" ]; then
     echo "✅ SOP 映射文件存在"
     echo "内容:"
-    cat /tmp/conversations/_sopmap.json | jq . 2>/dev/null || cat /tmp/conversations/_sopmap.json
+    cat ./conversations/_sopmap.json | jq . 2>/dev/null || cat ./conversations/_sopmap.json
 else
-    echo "❌ SOP 映射文件不存在"
+    echo "ℹ️ SOP 映射文件不存在（首次运行正常）"
 fi
 
 echo ""
 echo "📊 会话文件列表:"
-ls -la /tmp/conversations/*.json 2>/dev/null || echo "无会话文件"
+if ls ./conversations/*.json >/dev/null 2>&1; then
+    ls -la ./conversations/*.json
+else
+    echo "无会话文件（首次运行正常）"
+fi
 
 echo ""
 echo "🎉 测试完成！"

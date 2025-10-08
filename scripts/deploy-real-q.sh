@@ -25,13 +25,21 @@ export QPROXY_WS_URL=https://127.0.0.1:7682/ws
 export QPROXY_WS_USER=demo
 export QPROXY_WS_PASS=password123
 export QPROXY_WS_POOL=3
-export QPROXY_CONV_ROOT=/tmp/conversations
-export QPROXY_SOPMAP_PATH=/tmp/conversations/_sopmap.json
+export QPROXY_CONV_ROOT=./conversations
+export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
 export QPROXY_WS_INSECURE_TLS=1
 
 # 创建会话目录
-mkdir -p /tmp/conversations
+echo "📁 检查会话目录..."
+if [ ! -d "./conversations" ]; then
+    echo "创建 conversations 目录..."
+    mkdir -p ./conversations
+    chmod 755 ./conversations
+    echo "✅ conversations 目录已创建"
+else
+    echo "✅ conversations 目录已存在"
+fi
 
 # 停止现有服务
 echo "🛑 停止现有服务..."

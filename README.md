@@ -82,8 +82,8 @@ export QPROXY_WS_URL=http://127.0.0.1:7682/ws   # mock 是 http/ws；真实可�
 export QPROXY_WS_USER=demo
 export QPROXY_WS_PASS=password123
 export QPROXY_WS_POOL=3
-export QPROXY_CONV_ROOT=/tmp/conversations
-export QPROXY_SOPMAP_PATH=/tmp/conversations/_sopmap.json
+export QPROXY_CONV_ROOT=./conversations
+export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
 
 go mod tidy
@@ -145,8 +145,8 @@ export QPROXY_WS_URL=https://127.0.0.1:7682/ws
 export QPROXY_WS_USER=demo
 export QPROXY_WS_PASS=password123
 export QPROXY_WS_POOL=3
-export QPROXY_CONV_ROOT=/tmp/conversations
-export QPROXY_SOPMAP_PATH=/tmp/conversations/_sopmap.json
+export QPROXY_CONV_ROOT=./conversations
+export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
 export QPROXY_WS_INSECURE_TLS=1  # 如果使用自签名证书
 
