@@ -42,7 +42,7 @@ fi
 export QPROXY_WS_URL=http://127.0.0.1:7682/ws
 export QPROXY_WS_USER=demo
 export QPROXY_WS_PASS=password123
-export QPROXY_WS_POOL=3
+export QPROXY_WS_POOL=1
 export QPROXY_CONV_ROOT=./conversations
 export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
