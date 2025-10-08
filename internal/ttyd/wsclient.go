@@ -137,8 +137,32 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("empty prompt")
 	}
-	if err := c.SendLine(prompt); err != nil {
-		return "", err
+
+	// 尝试发送命令，如果失败则重试
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		if err := c.SendLine(prompt); err != nil {
+			if i == maxRetries-1 {
+				return "", fmt.Errorf("failed to send prompt after %d retries: %v", maxRetries, err)
+			}
+			// 等待一段时间后重试
+			time.Sleep(time.Duration(i+1) * time.Second)
+			continue
+		}
+
+		// 尝试读取响应
+		response, err := c.readUntilPrompt(ctx, idle)
+		if err != nil {
+			if i == maxRetries-1 {
+				return "", fmt.Errorf("failed to read response after %d retries: %v", maxRetries, err)
+			}
+			// 等待一段时间后重试
+			time.Sleep(time.Duration(i+1) * time.Second)
+			continue
+		}
+
+		return response, nil
 	}
-	return c.readUntilPrompt(ctx, idle)
+
+	return "", errors.New("unexpected error in Ask method")
 }
