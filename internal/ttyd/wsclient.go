@@ -53,7 +53,6 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
-		Subprotocols:     []string{"tty"},
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
 	conn, _, err := d.DialContext(ctx, u.String(), h)
