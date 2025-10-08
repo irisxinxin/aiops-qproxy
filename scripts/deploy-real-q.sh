@@ -86,28 +86,40 @@ sleep 2
 
 # 启动真实 ttyd + Q CLI
 echo "🔌 启动真实 ttyd + Q CLI..."
-ttyd -p 7682 -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
+nohup ttyd -p 7682 -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
 echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"
 
-# 等待 ttyd 启动
+# 等待 ttyd 启动并检查
 sleep 3
+if ! netstat -tlnp | grep -q ":7682 "; then
+    echo "❌ ttyd 启动失败"
+    cat ./logs/ttyd-q.log
+    exit 1
+fi
+echo "✅ ttyd 启动成功"
 
 # 启动 incident-worker
 echo "🚀 启动 incident-worker..."
 cd "$(dirname "$0")/.."
-go run ./cmd/incident-worker > ./logs/incident-worker-real.log 2>&1 &
+nohup go run ./cmd/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
 
-# 等待服务启动
+# 等待服务启动并检查
 sleep 3
+if ! netstat -tlnp | grep -q ":8080 "; then
+    echo "❌ incident-worker 启动失败"
+    cat ./logs/incident-worker-real.log
+    exit 1
+fi
+echo "✅ incident-worker 启动成功"
 
 # 测试连接
 echo "🧪 测试连接..."
-if curl -s -k http://127.0.0.1:8080/healthz | grep -q "ok"; then
+if curl -s http://127.0.0.1:8080/healthz | grep -q "ok"; then
     echo "✅ incident-worker 健康检查通过"
 else
     echo "❌ incident-worker 健康检查失败"
