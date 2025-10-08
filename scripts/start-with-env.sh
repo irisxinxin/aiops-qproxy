@@ -33,6 +33,14 @@ fi
 
 # 启动服务
 echo "▶️  启动 incident-worker..."
+env QPROXY_WS_URL=http://127.0.0.1:7682/ws \
+QPROXY_WS_USER=demo \
+QPROXY_WS_PASS=password123 \
+QPROXY_WS_POOL=5 \
+QPROXY_CONV_ROOT=./conversations \
+QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \
+QPROXY_HTTP_ADDR=:8080 \
+QPROXY_WS_INSECURE_TLS=0 \
 nohup ./bin/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid

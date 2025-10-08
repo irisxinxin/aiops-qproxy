@@ -1,80 +1,76 @@
 #!/bin/bash
+# 诊断 broken pipe 问题
 
-echo "🔍 诊断 broken pipe 错误..."
+echo "🔍 诊断 broken pipe 问题..."
 
-cd "$(dirname "$0")/.."
+# 检查服务状态
+echo "📋 服务状态："
+if pgrep -f "ttyd.*q chat" > /dev/null; then
+    echo "✅ ttyd 运行中"
+else
+    echo "❌ ttyd 未运行"
+    exit 1
+fi
 
-echo "📝 查看 incident-worker 日志："
-if [ -f "./logs/incident-worker-real.log" ]; then
-    echo "=== incident-worker 最新日志 ==="
-    tail -50 ./logs/incident-worker-real.log
-    echo ""
-    echo "=== 检查是否有连接错误 ==="
-    if grep -i "error\|fail\|timeout\|broken\|pipe\|connection" ./logs/incident-worker-real.log; then
-        echo "❌ 发现连接错误"
+if pgrep -f "incident-worker" > /dev/null; then
+    echo "✅ incident-worker 运行中"
+else
+    echo "❌ incident-worker 未运行"
+    exit 1
+fi
+
+# 检查端口
+echo "📋 端口状态："
+ss -tlnp | grep -E ":7682|:8080"
+
+# 检查最近的错误日志
+echo ""
+echo "📝 最近的错误日志："
+echo "=== ttyd 日志 ==="
+tail -20 ./logs/ttyd-q.log | grep -E "error|Error|ERROR|WS|closed|broken" || echo "没有发现错误"
+
+echo ""
+echo "=== incident-worker 日志 ==="
+tail -20 ./logs/incident-worker-real.log | grep -E "error|Error|ERROR|broken|pipe|connection" || echo "没有发现错误"
+
+# 测试 WebSocket 连接稳定性
+echo ""
+echo "🧪 测试 WebSocket 连接稳定性..."
+echo "发送多个测试请求..."
+
+for i in {1..5}; do
+    echo "测试 $i/5..."
+    RESPONSE=$(curl -s -X POST http://127.0.0.1:8080/incident \
+        -H 'content-type: application/json' \
+        -d "{\"incident_key\":\"test-$i\",\"prompt\":\"Hello test $i\"}")
+    
+    if echo "$RESPONSE" | grep -q "broken pipe"; then
+        echo "❌ 测试 $i 失败: broken pipe"
+    elif echo "$RESPONSE" | grep -q "error\|failed"; then
+        echo "⚠️  测试 $i 失败: $RESPONSE"
     else
-        echo "✅ 没有发现明显错误"
+        echo "✅ 测试 $i 成功"
     fi
-else
-    echo "❌ incident-worker 日志文件不存在"
-fi
+    
+    sleep 2
+done
 
+# 检查连接池状态
 echo ""
-echo "📝 查看 ttyd 日志："
-if [ -f "./logs/ttyd-q.log" ]; then
-    echo "=== ttyd 最新日志 ==="
-    tail -30 ./logs/ttyd-q.log
-    echo ""
-    echo "=== 检查是否有连接断开 ==="
-    if grep -i "closed\|disconnect\|error" ./logs/ttyd-q.log; then
-        echo "❌ 发现连接断开"
-    else
-        echo "✅ 没有发现明显错误"
-    fi
-else
-    echo "❌ ttyd 日志文件不存在"
-fi
+echo "📊 连接池状态分析："
+echo "检查 incident-worker 进程的连接..."
 
-echo ""
-echo "🔍 检查服务状态："
-echo "ttyd 进程："
-ps aux | grep ttyd | grep -v grep || echo "  没有 ttyd 进程"
-echo ""
-echo "incident-worker 进程："
-ps aux | grep incident-worker | grep -v grep || echo "  没有 incident-worker 进程"
-echo ""
-echo "端口状态："
-ss -tlnp | grep -E ":7682|:8080" || echo "  没有相关端口在监听"
+# 使用 netstat 检查连接
+echo "WebSocket 连接数："
+netstat -an | grep ":7682" | wc -l
 
-echo ""
-echo "🧪 测试 WebSocket 连接："
-echo "尝试建立 WebSocket 连接..."
-curl -i -N -H "Connection: Upgrade" \
-     -H "Upgrade: websocket" \
-     -H "Sec-WebSocket-Version: 13" \
-     -H "Sec-WebSocket-Key: $(echo -n "test" | base64)" \
-     -H "Authorization: Basic $(echo -n "demo:password123" | base64)" \
-     http://127.0.0.1:7682/ws &
-CURL_PID=$!
+echo "TCP 连接状态："
+netstat -an | grep ":7682" | head -5
 
-sleep 5
-echo "等待 5 秒后检查连接状态..."
-
-if ps -p $CURL_PID > /dev/null; then
-    echo "✅ WebSocket 连接保持正常"
-    kill $CURL_PID 2>/dev/null
-else
-    echo "❌ WebSocket 连接断开"
-fi
-
-echo ""
-echo "💡 可能的原因："
-echo "  1. Q CLI 连接超时或断开"
-echo "  2. WebSocket 连接池中的连接失效"
-echo "  3. ttyd 进程重启或崩溃"
-echo "  4. 网络问题或资源不足"
+# 建议
 echo ""
 echo "💡 建议："
-echo "  1. 重启服务: ./scripts/deploy-real-q.sh"
-echo "  2. 检查 Q CLI 状态"
-echo "  3. 检查系统资源"
+echo "1. 如果 broken pipe 频繁出现，可能是 Q CLI 连接不稳定"
+echo "2. 尝试重启 ttyd: kill \$(pgrep -f 'ttyd.*q chat') && ./scripts/deploy-real-q.sh"
+echo "3. 检查 AWS 网络连接和 Q CLI 配置"
+echo "4. 考虑增加连接池大小或减少连接超时时间"

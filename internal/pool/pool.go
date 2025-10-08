@@ -26,7 +26,7 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 		slots:        make(chan *qflow.Session, size),
 		opts:         o,
 		sessionTimes: make(map[*qflow.Session]time.Time),
-		maxLifetime:  30 * time.Minute, // 连接最大存活30分钟
+		maxLifetime:  5 * time.Minute, // 连接最大存活5分钟（Q CLI 连接不稳定）
 		targetSize:   size,
 	}
 
@@ -93,10 +93,13 @@ func (p *Pool) isSessionExpired(s *qflow.Session) bool {
 
 // 检查会话是否有效
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
-	// 使用更轻量的健康检查 - 使用 Q CLI 支持的命令
-	_, err := s.AskOnce("/context")
+	// 使用 echo 命令进行健康检查 - 这是最通用的命令
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := s.AskOnce("echo test")
 	if err != nil {
-		// 如果是连接错误，立即返回false，让连接池重新创建连接
+		// 任何错误都认为连接无效
 		return false
 	}
 	return true

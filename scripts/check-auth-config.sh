@@ -15,9 +15,9 @@ if pgrep -f "incident-worker" > /dev/null; then
     echo "incident-worker PID: $WORKER_PID"
     echo "检查进程环境变量..."
     if [ -f "/proc/$WORKER_PID/environ" ]; then
-        echo "QPROXY_WS_URL: $(grep -o 'QPROXY_WS_URL=[^[:space:]]*' /proc/$WORKER_PID/environ 2>/dev/null | cut -d'=' -f2 || echo '未设置')"
-        echo "QPROXY_WS_USER: $(grep -o 'QPROXY_WS_USER=[^[:space:]]*' /proc/$WORKER_PID/environ 2>/dev/null | cut -d'=' -f2 || echo '未设置')"
-        echo "QPROXY_WS_PASS: $(grep -o 'QPROXY_WS_PASS=[^[:space:]]*' /proc/$WORKER_PID/environ 2>/dev/null | cut -d'=' -f2 || echo '未设置')"
+        echo "QPROXY_WS_URL: $(tr '\0' '\n' < /proc/$WORKER_PID/environ 2>/dev/null | grep '^QPROXY_WS_URL=' | cut -d'=' -f2 || echo '未设置')"
+        echo "QPROXY_WS_USER: $(tr '\0' '\n' < /proc/$WORKER_PID/environ 2>/dev/null | grep '^QPROXY_WS_USER=' | cut -d'=' -f2 || echo '未设置')"
+        echo "QPROXY_WS_PASS: $(tr '\0' '\n' < /proc/$WORKER_PID/environ 2>/dev/null | grep '^QPROXY_WS_PASS=' | cut -d'=' -f2 || echo '未设置')"
     else
         echo "无法读取进程环境变量（可能需要sudo权限）"
     fi
