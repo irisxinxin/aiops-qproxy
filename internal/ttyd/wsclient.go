@@ -61,15 +61,14 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	}
 	c := &Client{conn: conn}
 
-	// 主动发送一个命令来触发 Q CLI 响应
-	// 发送换行符来触发提示符
-	if err := c.SendLine(""); err != nil {
+	// 主动发送 q chat 命令来启动 Q CLI 交互模式
+	if err := c.SendLine("q chat"); err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("failed to send initial command: %v", err)
+		return nil, fmt.Errorf("failed to send q chat command: %v", err)
 	}
 
-	// 等待响应（给 Q CLI 一些时间）
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// 等待响应（给 Q CLI 足够时间初始化 Amazon Q 连接）
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
