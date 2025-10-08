@@ -93,8 +93,9 @@ func (p *Pool) isSessionExpired(s *qflow.Session) bool {
 
 // 检查会话是否有效
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
-	// 使用 echo 命令进行健康检查 - 这是最通用的命令
-	_, err := s.AskOnce("echo test")
+	// 使用更简单的健康检查 - 发送空命令，Q CLI 应该返回提示符
+	// 如果连接断开，会返回错误
+	_, err := s.AskOnce("")
 	if err != nil {
 		// 任何错误都认为连接无效
 		return false
