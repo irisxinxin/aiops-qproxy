@@ -81,10 +81,23 @@ func (c *Client) SendLine(line string) error {
 
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
-	deadline := time.Now().Add(idle)
+
+	// 使用 context 的超时，而不是固定的 idle 时间
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		// 如果没有 context 超时，使用 idle 时间
+		deadline = time.Now().Add(idle)
+	}
 	_ = c.conn.SetReadDeadline(deadline)
 
 	for {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			return "", err
@@ -97,7 +110,13 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			out := buf.String()
 			return out, nil
 		}
-		_ = c.conn.SetReadDeadline(time.Now().Add(idle))
+
+		// 更新 deadline，但不超过 context 的超时
+		newDeadline := time.Now().Add(5 * time.Second) // 每次读取等待5秒
+		if ctxDeadline, ok := ctx.Deadline(); ok && newDeadline.After(ctxDeadline) {
+			newDeadline = ctxDeadline
+		}
+		_ = c.conn.SetReadDeadline(newDeadline)
 	}
 }
 
