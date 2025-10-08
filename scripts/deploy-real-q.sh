@@ -114,12 +114,14 @@ if ! go mod tidy; then
     exit 1
 fi
 
-# 尝试编译
-echo "🔨 编译 incident-worker..."
+# 强制重新编译（确保使用最新的超时设置）
+echo "🔨 重新编译 incident-worker..."
+rm -f ./bin/incident-worker
 if ! go build -o ./bin/incident-worker ./cmd/incident-worker; then
     echo "❌ 编译失败"
     exit 1
 fi
+echo "✅ 编译成功（使用新的超时设置）"
 
 # 启动服务
 echo "▶️  启动 incident-worker 服务..."
