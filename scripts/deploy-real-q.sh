@@ -8,29 +8,18 @@ echo "🚀 部署真实 Q CLI 环境..."
 # 检查并清理端口占用
 echo "🔍 检查端口占用情况..."
 
-# 检查 7682 端口 (ttyd)
-if ss -tlnp | grep -q ":7682 "; then
-    echo "⚠️  端口 7682 被占用，正在清理..."
-    pkill -f 'ttyd.*q chat'
-    sleep 2
-    if ss -tlnp | grep -q ":7682 "; then
-        echo "❌ 端口 7682 仍被占用，强制清理..."
-        sudo pkill -9 -f 'ttyd'
-        sleep 1
-    fi
-fi
+# 统一清理所有相关进程
+echo "🛑 停止所有相关服务..."
+pkill -f 'ttyd.*q chat' || true
+pkill -f 'incident-worker' || true
+pkill -f 'mock-ttyd' || true
+sleep 2
 
-# 检查 8080 端口 (incident-worker)
-if ss -tlnp | grep -q ":8080 "; then
-    echo "⚠️  端口 8080 被占用，正在清理..."
-    pkill -f 'incident-worker'
-    sleep 2
-    if ss -tlnp | grep -q ":8080 "; then
-        echo "❌ 端口 8080 仍被占用，强制清理..."
-        sudo pkill -9 -f 'incident-worker'
-        sleep 1
-    fi
-fi
+# 强制清理端口
+echo "🔧 强制清理端口..."
+sudo fuser -k 7682/tcp 2>/dev/null || true
+sudo fuser -k 8080/tcp 2>/dev/null || true
+sleep 1
 
 echo "✅ 端口清理完成"
 
@@ -79,16 +68,6 @@ else
     echo "✅ logs 目录已存在"
 fi
 
-# 停止现有服务（额外保险）
-echo "🛑 停止现有服务..."
-pkill -f "mock-ttyd\|incident-worker\|ttyd.*q chat" || true
-sleep 2
-
-# 强制清理端口（如果还有问题）
-echo "🔧 强制清理端口..."
-sudo fuser -k 7682/tcp 2>/dev/null || true
-sudo fuser -k 8080/tcp 2>/dev/null || true
-sleep 1
 
 # 启动真实 ttyd + Q CLI
 echo "🔌 启动真实 ttyd + Q CLI..."
