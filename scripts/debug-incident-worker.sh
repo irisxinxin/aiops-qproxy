@@ -40,8 +40,11 @@ echo "🔨 尝试编译："
 if go build -o ./bin/incident-worker ./cmd/incident-worker; then
     echo "✅ 编译成功"
     echo ""
-    echo "▶️  手动启动 incident-worker（按 Ctrl+C 停止）："
-    ./bin/incident-worker
+echo "▶️  手动启动 incident-worker（按 Ctrl+C 停止）："
+echo "   如果程序立即退出，说明连接失败"
+echo "   如果程序卡住，说明连接成功但等待中"
+echo ""
+./bin/incident-worker
 else
     echo "❌ 编译失败"
     exit 1
