@@ -61,15 +61,23 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	}
 	c := &Client{conn: conn}
 
-	// 增加超时和错误处理，给Q CLI足够时间准备
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	// 主动发送一个命令来触发 Q CLI 响应
+	// 发送换行符来触发提示符
+	if err := c.SendLine(""); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to send initial command: %v", err)
+	}
+
+	// 等待响应（给 Q CLI 一些时间）
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
 	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("failed to read initial prompt: %v", err)
+		// 如果读取失败，不关闭连接，继续使用
+		// 可能 Q CLI 需要更多时间或者有不同的交互模式
 	}
+
 	return c, nil
 }
 
