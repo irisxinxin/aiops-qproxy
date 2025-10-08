@@ -7,7 +7,7 @@ echo "🧪 测试真实 Q CLI 环境..."
 
 # 检查服务状态
 echo "📋 检查服务状态..."
-if ! curl -s -k http://127.0.0.1:8080/healthz | grep -q "ok"; then
+if ! curl -s http://127.0.0.1:8080/healthz | grep -q "ok"; then
     echo "❌ incident-worker 未运行，请先运行 deploy-real-q.sh"
     exit 1
 fi

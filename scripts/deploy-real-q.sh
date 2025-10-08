@@ -21,14 +21,14 @@ if ! command -v ttyd &> /dev/null; then
 fi
 
 # 设置环境变量
-export QPROXY_WS_URL=https://127.0.0.1:7682/ws
+export QPROXY_WS_URL=http://127.0.0.1:7682/ws
 export QPROXY_WS_USER=demo
 export QPROXY_WS_PASS=password123
 export QPROXY_WS_POOL=3
 export QPROXY_CONV_ROOT=./conversations
 export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
-export QPROXY_WS_INSECURE_TLS=1
+export QPROXY_WS_INSECURE_TLS=0
 
 # 创建会话目录和日志目录
 echo "📁 检查目录..."
@@ -57,7 +57,7 @@ sleep 2
 
 # 启动真实 ttyd + Q CLI
 echo "🔌 启动真实 ttyd + Q CLI..."
-ttyd -p 7682 -W -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
+ttyd -p 7682 -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
 echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"
