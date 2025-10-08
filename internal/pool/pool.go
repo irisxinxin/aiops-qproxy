@@ -62,8 +62,8 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 
 			newSession, err := qflow.New(ctx, p.opts)
 			if err != nil {
-				// 如果重新创建失败，返回错误
-				// 注意：这会导致池中连接数减少，但这是可接受的
+				// 如果重新创建失败，异步补充连接
+				go p.maintainPoolSize()
 				return nil, fmt.Errorf("failed to recreate session: %v", err)
 			}
 			s = newSession
@@ -94,13 +94,17 @@ func (p *Pool) isSessionExpired(s *qflow.Session) bool {
 func (p *Pool) isSessionValid(s *qflow.Session) bool {
 	// 使用更轻量的健康检查
 	_, err := s.AskOnce("echo test")
-	return err == nil
+	if err != nil {
+		// 如果是连接错误，立即返回false，让连接池重新创建连接
+		return false
+	}
+	return true
 }
 func (l *Lease) Session() *qflow.Session { return l.s }
 func (l *Lease) Release() {
-	// 检查连接是否还有效，如果无效则不归还到池中
-	if l.p.isSessionExpired(l.s) || !l.p.isSessionValid(l.s) {
-		// 连接已失效，不归还到池中
+	// 检查连接是否过期，如果过期则不归还到池中
+	if l.p.isSessionExpired(l.s) {
+		// 连接已过期，不归还到池中
 		l.p.mu.Lock()
 		delete(l.p.sessionTimes, l.s)
 		l.p.mu.Unlock()
@@ -110,20 +114,25 @@ func (l *Lease) Release() {
 		return
 	}
 
-	// 连接有效，归还到池中
+	// 连接未过期，归还到池中
+	// 注意：不在这里进行健康检查，避免阻塞
 	l.p.slots <- l.s
 }
 
 // 维护池大小，确保池中始终有足够的连接
 func (p *Pool) maintainPoolSize() {
-	// 检查当前池大小
+	// 检查当前池大小（线程安全）
+	p.mu.RLock()
 	currentSize := len(p.slots)
-	if currentSize >= p.targetSize {
+	targetSize := p.targetSize
+	p.mu.RUnlock()
+
+	if currentSize >= targetSize {
 		return // 池大小正常，不需要补充
 	}
 
 	// 需要补充连接
-	needed := p.targetSize - currentSize
+	needed := targetSize - currentSize
 	for i := 0; i < needed; i++ {
 		if s, err := qflow.New(context.Background(), p.opts); err == nil {
 			p.slots <- s

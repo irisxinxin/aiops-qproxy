@@ -71,6 +71,12 @@ func (s *Session) AskOnce(prompt string) (string, error) {
 			return response, nil
 		}
 
+		// 如果是连接错误，不要重试，直接返回错误
+		// 让连接池重新创建连接
+		if isConnectionError(err) {
+			return "", err
+		}
+
 		// 检查错误类型，决定是否重试
 		if !isRetryableError(err) {
 			return "", err
@@ -96,18 +102,40 @@ func isRetryableError(err error) bool {
 	}
 
 	errStr := err.Error()
-	// 网络相关错误可以重试
+	// 只有非连接错误才重试
 	retryableErrors := []string{
-		"broken pipe",
-		"connection reset",
-		"i/o timeout",
-		"connection refused",
-		"network is unreachable",
 		"temporary failure",
+		"server error",
+		"timeout",
 	}
 
 	for _, retryableErr := range retryableErrors {
 		if strings.Contains(errStr, retryableErr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// 判断是否为连接错误
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+	connectionErrors := []string{
+		"broken pipe",
+		"connection reset",
+		"connection refused",
+		"network is unreachable",
+		"i/o timeout",
+		"use of closed network connection",
+	}
+
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
 			return true
 		}
 	}
