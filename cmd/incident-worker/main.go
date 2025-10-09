@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -165,6 +166,21 @@ func main() {
 		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or include prompt)")
 	}
 
+	// 清洗 ANSI/控制字符，避免 spinner/颜色污染响应
+	csi := regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
+	osc := regexp.MustCompile(`\x1b\][^\a]*\x07`)
+	ctrl := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`) // 保留\t\n\r
+	cleanText := func(s string) string {
+		s = csi.ReplaceAllString(s, "")
+		s = osc.ReplaceAllString(s, "")
+		s = ctrl.ReplaceAllString(s, "")
+		// 归一化换行
+		s = strings.ReplaceAll(s, "\r\n", "\n")
+		s = strings.ReplaceAll(s, "\r", "\n")
+		// 去除多余首尾空白
+		return strings.TrimSpace(s)
+	}
+
 	mux.HandleFunc("/incident", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -218,7 +234,7 @@ func main() {
 			http.Error(w, fmt.Sprintf("process error: %v", err), http.StatusBadGateway)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"answer": out})
+		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanText(out)})
 	})
 
 	addr := getenv("QPROXY_HTTP_ADDR", ":8080")
