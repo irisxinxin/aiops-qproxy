@@ -149,6 +149,11 @@ func (c *Client) sendCtrlC() error {
 	return c.conn.WriteMessage(websocket.TextMessage, []byte{0x03})
 }
 
+// isAlnum 检查字符是否为字母或数字
+func isAlnum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
 	hardDeadline := time.Now().Add(idle)
@@ -172,17 +177,17 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				cleaned := ansi.ReplaceAllString(buf.String(), "")
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
-				// 使用和正常检查相同的逻辑
-				if strings.HasSuffix(cleaned, ">") &&
-					(strings.HasSuffix(cleaned, "q>") ||
-						strings.HasSuffix(cleaned, "\n>") ||
-						strings.HasSuffix(cleaned, " >")) {
-					tailLen := 20
-					if len(cleaned) < tailLen {
-						tailLen = len(cleaned)
+				// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
+				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+					// 检查 > 前一个字符（如果有）不是字母数字
+					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+						tailLen := 30
+						if len(cleaned) < tailLen {
+							tailLen = len(cleaned)
+						}
+						log.Printf("ttyd: prompt detected on timeout, cleaned tail: %q", cleaned[len(cleaned)-tailLen:])
+						return buf.String(), nil
 					}
-					log.Printf("ttyd: prompt detected on timeout, cleaned tail: %q", cleaned[len(cleaned)-tailLen:])
-					return buf.String(), nil
 				}
 			}
 			log.Printf("ttyd: read message error: %v", err)
@@ -199,17 +204,17 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		// 去掉 ANSI 序列再判定提示符，避免彩色/TUI 干扰
 		cleaned := ansi.ReplaceAllString(buf.String(), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
-		// 匹配提示符：末尾是 > 或 q>（不要求后面有空格）
-		if strings.HasSuffix(cleaned, ">") &&
-			(strings.HasSuffix(cleaned, "q>") ||
-				strings.HasSuffix(cleaned, "\n>") ||
-				strings.HasSuffix(cleaned, " >")) {
-			start := len(cleaned) - 20
-			if start < 0 {
-				start = 0
+		// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
+		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+			// 检查 > 前一个字符（如果有）不是字母数字
+			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+				start := len(cleaned) - 30
+				if start < 0 {
+					start = 0
+				}
+				log.Printf("ttyd: prompt detected, cleaned tail: %q", cleaned[start:])
+				return buf.String(), nil
 			}
-			log.Printf("ttyd: prompt detected, cleaned tail: %q", cleaned[start:])
-			return buf.String(), nil
 		}
 
 		// 每次读到数据后，短超时(2s)等后续片段，给 Q CLI 初始化留足时间
