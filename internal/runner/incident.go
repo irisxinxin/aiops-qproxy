@@ -71,9 +71,11 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 
 	// 4) ask with current prompt
 	out, err := s.AskOnce(strings.TrimSpace(in.Prompt))
-	if err != nil { // cleanup defer will run
+	if err != nil {
 		if qflow.IsConnError(err) {
 			lease.MarkBroken()
+			// 连接错误时，关闭底层连接，避免 defer 中的清理操作继续使用已失效的连接
+			_ = s.Close()
 		}
 		return "", err
 	}
