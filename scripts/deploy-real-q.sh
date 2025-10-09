@@ -25,11 +25,7 @@ if ss -tlnp | grep -q ":8080 "; then
     echo "🔥 8080 端口还在占用，强制清理..."
     # 使用多种方法清理 8080
     sudo lsof -ti:8080 | xargs sudo kill -9 2>/dev/null || true
-    PID=$(sudo netstat -tlnp | grep ":8080 " | awk '{print $7}' | cut -d'/' -f1)
-    if [ ! -z "$PID" ] && [ "$PID" != "-" ]; then
-        echo "   杀死进程 $PID"
-        sudo kill -9 $PID 2>/dev/null || true
-    fi
+    # 避免依赖 netstat：仅用 lsof/fuser 处理
     sleep 2
 fi
 
@@ -129,6 +125,7 @@ echo "▶️  启动 incident-worker 服务 (NoAuth 模式)..."
 # 设置环境变量并启动服务
 env \
 QPROXY_WS_URL=ws://127.0.0.1:7682/ws \
+QPROXY_WS_NOAUTH=1 \
 QPROXY_WS_POOL=1 \
 QPROXY_CONV_ROOT=./conversations \
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \
@@ -139,40 +136,32 @@ WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
 
-# 等待服务启动并检查（Q CLI 需要时间准备）
-sleep 10
-if ! ss -tlnp | grep -q ":8080 "; then
-    echo "❌ incident-worker 启动失败"
-    echo "📝 查看详细日志："
-    cat ./logs/incident-worker-real.log
-    echo ""
-    echo "🔍 检查进程状态："
-    ps aux | grep incident-worker | grep -v grep || echo "  没有 incident-worker 进程"
-    echo ""
-    echo "🔍 检查端口状态："
-    ss -tlnp | grep -E ":7682|:8080" || echo "  没有相关端口在监听"
-    exit 1
+# 等待服务就绪（最多 30s）
+echo "⏳ 等待 incident-worker 就绪..."
+ok=false
+for i in $(seq 1 30); do
+  code=$(curl -sS -o /tmp/qproxy_ready.$$ -w '%{http_code}' http://127.0.0.1:8080/readyz || true)
+  if [ "$code" = "200" ]; then
+    ok=true
+    rm -f /tmp/qproxy_ready.$$ 2>/dev/null || true
+    break
+  fi
+  sleep 1
+done
+if [ "$ok" != true ]; then
+  echo "❌ incident-worker 启动超时"
+  echo "📝 查看详细日志："; tail -50 ./logs/incident-worker-real.log || true
+  echo "🔍 端口状态："; ss -tlnp | grep -E ":7682|:8080" || true
+  exit 1
 fi
-echo "✅ incident-worker 启动成功"
+echo "✅ incident-worker 就绪"
 
 # 测试连接
 echo "🧪 测试连接..."
-if curl -s http://127.0.0.1:8080/healthz | grep -q "ok"; then
-    echo "✅ incident-worker 健康检查通过"
-else
-    echo "❌ incident-worker 健康检查失败"
-    echo "📝 查看最新日志："
-    tail -20 ./logs/incident-worker-real.log
-    echo ""
-    echo "🔍 手动测试健康检查："
-    curl -v http://127.0.0.1:8080/healthz || echo "  连接失败"
-    echo ""
-    echo "💡 建议："
-    echo "  1. 检查 incident-worker 是否真的在运行"
-    echo "  2. 检查端口 8080 是否被占用"
-    echo "  3. 查看完整日志: cat ./logs/incident-worker-real.log"
-    exit 1
-fi
+HZ=$(curl -sS http://127.0.0.1:8080/healthz || true)
+echo "healthz: $HZ"
+echo "$HZ" | grep -q '"ready":[1-9]' && echo "✅ incident-worker 健康检查通过" || {
+  echo "❌ incident-worker 健康检查未就绪"; tail -20 ./logs/incident-worker-real.log; exit 1; }
 
 echo "🎉 真实 Q CLI 环境部署完成！"
 echo ""
