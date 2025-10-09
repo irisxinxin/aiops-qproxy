@@ -16,22 +16,25 @@ import (
 	"aiops-qproxy/internal/store"
 )
 
-func getenv(k, d string) string {
-	if v := os.Getenv(k); v != "" {
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
 		return v
 	}
-	return d
+	return def
 }
 
 func main() {
 	ctx := context.Background()
 
-	wsURL := getenv("QPROXY_WS_URL", "http://127.0.0.1:7682/ws")
+	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
 	user := getenv("QPROXY_WS_USER", "demo")
 	pass := getenv("QPROXY_WS_PASS", "password123")
 	nStr := getenv("QPROXY_WS_POOL", "3")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
+	authHeaderName := getenv("QPROXY_WS_AUTH_HEADER_NAME", "")
+	authHeaderVal := getenv("QPROXY_WS_AUTH_HEADER_VAL", "")
+	tokenURL := getenv("QPROXY_WS_TOKEN_URL", "")
 
 	n, _ := strconv.Atoi(nStr)
 	if n <= 0 {
@@ -39,12 +42,15 @@ func main() {
 	}
 
 	qo := qflow.Opts{
-		WSURL:       wsURL,
-		WSUser:      user,
-		WSPass:      pass,
-		InsecureTLS: getenv("QPROXY_WS_INSECURE_TLS", "0") == "1",
-		IdleTO:      60 * time.Second,
-		Handshake:   60 * time.Second, // 增加到60秒，给Q CLI足够时间准备
+		WSURL:          wsURL,
+		WSUser:         user,
+		WSPass:         pass,
+		IdleTO:         60 * time.Second,
+		Handshake:      10 * time.Second,
+		TokenURL:       tokenURL,
+		AuthHeaderName: authHeaderName,
+		AuthHeaderVal:  authHeaderVal,
+		Columns:        120, Rows: 30,
 	}
 
 	p, err := pool.New(ctx, n, qo)
@@ -52,39 +58,27 @@ func main() {
 		log.Fatalf("pool init: %v", err)
 	}
 
-	cs, err := store.NewConvStore(root)
+	sopmap, err := store.LoadSOPMap(mpath)
 	if err != nil {
-		log.Fatalf("convstore: %v", err)
+		log.Fatalf("sopmap load: %v", err)
 	}
-	sm, err := store.LoadSOPMap(mpath)
+
+	conv, err := store.NewConvStore(root)
 	if err != nil {
-		log.Fatalf("sopmap: %v", err)
+		log.Fatalf("convstore init: %v", err)
 	}
-	orc := runner.NewOrchestrator(p, sm, cs)
+	orc := runner.NewOrchestrator(p, sopmap, conv)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
+		w.WriteHeader(http.StatusOK)
 	})
-
 	mux.HandleFunc("/incident", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
 		var in runner.IncidentInput
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-			http.Error(w, "bad request", http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("decode error: %v", err), http.StatusBadRequest)
 			return
 		}
-		if in.IncidentKey == "" || in.Prompt == "" {
-			http.Error(w, "incident_key and prompt required", http.StatusBadRequest)
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
-		defer cancel()
-
 		out, err := orc.Process(ctx, in)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("process error: %v", err), http.StatusBadGateway)
@@ -97,5 +91,7 @@ func main() {
 
 	addr := getenv("QPROXY_HTTP_ADDR", ":8080")
 	log.Printf("incident-worker listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatalf("http serve: %v", err)
+	}
 }

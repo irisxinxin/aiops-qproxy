@@ -2,6 +2,7 @@ package qflow
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,22 +15,30 @@ type Session struct {
 }
 
 type Opts struct {
-	WSURL       string
-	WSUser      string
-	WSPass      string
-	InsecureTLS bool
-	IdleTO      time.Duration
-	Handshake   time.Duration
+	WSURL          string
+	WSUser         string
+	WSPass         string
+	IdleTO         time.Duration
+	Handshake      time.Duration
+	TokenURL       string
+	AuthHeaderName string
+	AuthHeaderVal  string
+	Columns        int
+	Rows           int
 }
 
 func New(ctx context.Context, o Opts) (*Session, error) {
 	cli, err := ttyd.Dial(ctx, ttyd.DialOptions{
-		Endpoint:    o.WSURL,
-		Username:    o.WSUser,
-		Password:    o.WSPass,
-		InsecureTLS: o.InsecureTLS,
-		HandshakeTO: o.Handshake,
-		ReadIdleTO:  o.IdleTO,
+		Endpoint:       o.WSURL,
+		Username:       o.WSUser,
+		Password:       o.WSPass,
+		HandshakeTO:    o.Handshake,
+		ReadIdleTO:     o.IdleTO,
+		TokenURL:       o.TokenURL,
+		AuthHeaderName: o.AuthHeaderName,
+		AuthHeaderVal:  o.AuthHeaderVal,
+		Columns:        o.Columns,
+		Rows:           o.Rows,
 	})
 	if err != nil {
 		return nil, err
@@ -63,6 +72,12 @@ func (s *Session) ContextClear() error {
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {
-	// 直接调用 wsclient.Ask，它已经处理了连接错误和重试
 	return s.cli.Ask(context.Background(), strings.TrimSpace(prompt), s.opts.IdleTO)
+}
+
+func (s *Session) Close() error {
+	if s.cli == nil {
+		return fmt.Errorf("nil client")
+	}
+	return s.cli.Close()
 }

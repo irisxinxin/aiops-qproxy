@@ -2,45 +2,43 @@ package pool
 
 import (
 	"context"
-	"fmt"
-	"sync"
+	"log"
+	"math"
+	"math/rand"
 	"time"
 
 	"aiops-qproxy/internal/qflow"
 )
 
 type Pool struct {
+	size  int
 	slots chan *qflow.Session
 	opts  qflow.Opts
-	mu    sync.RWMutex
-	// 连接创建时间，用于检测过期连接
-	sessionTimes map[*qflow.Session]time.Time
-	// 最大连接存活时间
-	maxLifetime time.Duration
-	// 目标池大小
-	targetSize int
 }
 
 func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 	p := &Pool{
-		slots:        make(chan *qflow.Session, size),
-		opts:         o,
-		sessionTimes: make(map[*qflow.Session]time.Time),
-		maxLifetime:  5 * time.Minute, // 连接最大存活5分钟（Q CLI 连接不稳定）
-		targetSize:   size,
+		size:  size,
+		slots: make(chan *qflow.Session, size),
+		opts:  o,
 	}
-
+	// start async fillers; do not fail hard if some dials fail
 	for i := 0; i < size; i++ {
-		s, err := qflow.New(ctx, o)
-		if err != nil {
-			return nil, err
-		}
-		p.slots <- s
-		p.mu.Lock()
-		p.sessionTimes[s] = time.Now()
-		p.mu.Unlock()
+		go p.fillOne(context.WithValue(ctx, "slot", i))
 	}
-	return p, nil
+	// Wait briefly to see if at least one session arrives
+	timer := time.NewTimer(2 * time.Second)
+	select {
+	case s := <-p.slots:
+		// put back and proceed
+		timer.Stop()
+		p.slots <- s
+		return p, nil
+	case <-timer.C:
+		// no sessions yet, but keep background fillers running; still return pool
+		log.Printf("pool: no session ready yet; continuing with lazy fill")
+		return p, nil
+	}
 }
 
 type Lease struct {
@@ -50,93 +48,44 @@ type Lease struct {
 }
 
 func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
-	// 尝试从池中获取连接
 	select {
 	case s := <-p.slots:
-		// 只检查连接是否过期，不进行健康检查
-		// 健康检查可能会触发连接断开，在实际使用时处理连接错误
-		if p.isSessionExpired(s) {
-			// 连接已过期，重新创建
-			p.mu.Lock()
-			delete(p.sessionTimes, s)
-			p.mu.Unlock()
-
-			newSession, err := qflow.New(ctx, p.opts)
-			if err != nil {
-				// 如果重新创建失败，异步补充连接
-				go p.maintainPoolSize()
-				return nil, fmt.Errorf("failed to recreate session: %v", err)
-			}
-			s = newSession
-			p.mu.Lock()
-			p.sessionTimes[s] = time.Now()
-			p.mu.Unlock()
-		}
-
 		return &Lease{p: p, s: s, t0: time.Now()}, nil
-
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
-
-// 检查会话是否过期
-func (p *Pool) isSessionExpired(s *qflow.Session) bool {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	if createTime, exists := p.sessionTimes[s]; exists {
-		return time.Since(createTime) > p.maxLifetime
-	}
-	return true // 如果找不到创建时间，认为已过期
-}
-
-// 检查会话是否有效
-func (p *Pool) isSessionValid(s *qflow.Session) bool {
-	// 使用更简单的健康检查 - 发送空命令，Q CLI 应该返回提示符
-	// 如果连接断开，会返回错误
-	_, err := s.AskOnce("")
-	if err != nil {
-		// 任何错误都认为连接无效
-		return false
-	}
-	return true
-}
 func (l *Lease) Session() *qflow.Session { return l.s }
-func (l *Lease) Release() {
-	// 检查连接是否过期，如果过期则不归还到池中
-	if l.p.isSessionExpired(l.s) {
-		// 连接已过期，不归还到池中
-		l.p.mu.Lock()
-		delete(l.p.sessionTimes, l.s)
-		l.p.mu.Unlock()
+func (l *Lease) Release()                { l.p.slots <- l.s }
 
-		// 异步创建一个新连接来维持池大小
-		go l.p.maintainPoolSize()
-		return
-	}
-
-	// 连接未过期，归还到池中
-	// 注意：不在这里进行健康检查，避免阻塞
-	l.p.slots <- l.s
-}
-
-// 维护池大小，确保池中始终有足够的连接
-func (p *Pool) maintainPoolSize() {
-	// 需要补充连接
-	needed := 1 // 每次只补充一个连接，避免竞态条件
-
-	for i := 0; i < needed; i++ {
-		if s, err := qflow.New(context.Background(), p.opts); err == nil {
-			// 尝试放入连接，如果池已满则丢弃
+func (p *Pool) fillOne(ctx context.Context) {
+	j := 0
+	backoff := 500 * time.Millisecond
+	for {
+		s, err := qflow.New(ctx, p.opts)
+		if err == nil {
 			select {
 			case p.slots <- s:
-				p.mu.Lock()
-				p.sessionTimes[s] = time.Now()
-				p.mu.Unlock()
-			default:
-				// 池已满，丢弃这个连接
+				return
+			case <-ctx.Done():
+				return
 			}
 		}
+		j++
+		sleep := jitter(backoff)
+		if backoff < 8*time.Second {
+			backoff = time.Duration(math.Min(float64(backoff*2), float64(8*time.Second)))
+		}
+		log.Printf("pool: dial failed (attempt %d): %v; retrying in %v", j, err, sleep)
+		select {
+		case <-time.After(sleep):
+		case <-ctx.Done():
+			return
+		}
 	}
+}
+
+func jitter(d time.Duration) time.Duration {
+	delta := d / 5
+	return d - delta + time.Duration(rand.Int63n(int64(2*delta)))
 }
