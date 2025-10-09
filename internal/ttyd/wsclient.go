@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -44,16 +45,20 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		u.Path = "/ws"
 	}
 
-	// 使用 URL 认证而不是 Header 认证（适用于 ttyd 1.7.4）
-	if opt.Username != "" && opt.Password != "" {
-		u.User = url.UserPassword(opt.Username, opt.Password)
-	}
-
 	h := http.Header{}
+	if opt.Username != "" && opt.Password != "" {
+		auth := opt.Username + ":" + opt.Password
+		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
+		// 为 ttyd 1.7.4 添加额外的头部
+		h.Set("User-Agent", "aiops-qproxy/1.0")
+		h.Set("Origin", "http://127.0.0.1:7682")
+	}
 
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
-		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
+		// ttyd 1.7.4 期望使用子协议 "tty"；通过 Dialer 设置，避免重复头部
+		Subprotocols:    []string{"tty"},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {

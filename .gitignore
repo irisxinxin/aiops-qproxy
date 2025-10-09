@@ -11,6 +11,10 @@ conversations/
 *.out
 go.work
 
+# 编译的二进制文件
+bin/
+*.bin
+
 # 依赖目录
 vendor/
 
