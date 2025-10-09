@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -45,25 +46,58 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		u.Path = "/ws"
 	}
 
-	h := http.Header{}
-	if opt.Username != "" && opt.Password != "" {
-		auth := opt.Username + ":" + opt.Password
-		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(auth)))
-		// 为 ttyd 1.7.4 添加额外的头部
-		h.Set("User-Agent", "aiops-qproxy/1.0")
-		h.Set("Origin", "http://127.0.0.1:7682")
+	// 1) 建连：带子协议 tty
+	d := websocket.Dialer{
+		Subprotocols:      []string{"tty"},
+		EnableCompression: true, // ttyd 默认开启 permessage-deflate，gorilla 会协商
+		HandshakeTimeout:  opt.HandshakeTO,
+		TLSClientConfig:   &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
 
-	d := websocket.Dialer{
-		HandshakeTimeout: opt.HandshakeTO,
-		// ttyd 1.7.4 期望使用子协议 "tty"；通过 Dialer 设置，避免重复头部
-		Subprotocols:    []string{"tty"},
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
+	// 如果是 -c 场景，顺手把 Basic 头也带上（便于 /token）
+	hdr := http.Header{}
+	if opt.Username != "" && opt.Password != "" {
+		basic := base64.StdEncoding.EncodeToString([]byte(opt.Username + ":" + opt.Password))
+		hdr.Set("Authorization", "Basic "+basic)
 	}
-	conn, _, err := d.DialContext(ctx, u.String(), h)
+
+	conn, resp, err := d.DialContext(ctx, u.String(), hdr)
 	if err != nil {
+		// 打印 resp.StatusCode/headers 排查 CORS/子协议/证书等
+		if resp != nil {
+			fmt.Printf("WebSocket dial failed: %v, Status: %s\n", err, resp.Status)
+		}
 		return nil, err
 	}
+	if resp != nil {
+		resp.Body.Close()
+	}
+
+	// 2) 取 token：优先 /token → 否则 fallback
+	token := ""
+	if opt.Username != "" && opt.Password != "" {
+		// -c 场景 fallback
+		token = base64.StdEncoding.EncodeToString([]byte(opt.Username + ":" + opt.Password))
+	}
+
+	// 3) 发送首帧 JSON_DATA：binary 帧首字节就是 '{'
+	hello := map[string]interface{}{
+		"AuthToken": token,
+		"columns":   120,
+		"rows":      30,
+	}
+	b, err := json.Marshal(hello)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to marshal hello message: %v", err)
+	}
+	// 关键点：ttyd 通过"首字节 == '{'"识别 JSON_DATA，所以直接发 JSON 即可；
+	// 用 BinaryMessage 更贴近官方实现。
+	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to send hello message: %v", err)
+	}
+
 	c := &Client{conn: conn}
 
 	// 主动发送 q chat 命令来启动 Q CLI 交互模式
@@ -72,14 +106,12 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("failed to send q chat command: %v", err)
 	}
 
-	// 等待响应（给 Q CLI 足够时间初始化 Amazon Q 连接）
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	// 等待 Q CLI 初始化完成（读取初始提示符）
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-
-	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
-	if err != nil {
-		// 如果读取失败，不关闭连接，继续使用
-		// 可能 Q CLI 需要更多时间或者有不同的交互模式
+	if _, err := c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to read initial prompt: %v", err)
 	}
 
 	return c, nil
