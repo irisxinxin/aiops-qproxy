@@ -162,6 +162,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
 	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 	msgCount := 0
+	promptLikeSeen := false // 是否看到过疑似提示符
 
 	for {
 		// 检查 context 是否被取消
@@ -218,8 +219,15 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			}
 		}
 
-		// 每次读到数据后，短超时(2s)等后续片段，给 Q CLI 初始化留足时间
-		_ = c.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		// 智能超时策略：
+		// 1. 看到 ">" 字符后才用短超时（3秒），因为提示符可能快到了
+		// 2. 否则用长超时（30秒），给 Q CLI banner 足够时间
+		if strings.Contains(string(data), ">") || promptLikeSeen {
+			promptLikeSeen = true
+			_ = c.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		} else {
+			_ = c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		}
 	}
 }
 
