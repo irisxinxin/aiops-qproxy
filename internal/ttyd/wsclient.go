@@ -317,7 +317,14 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 			if msgType == '0' {
 				// OUTPUT 类型，写入实际内容（跳过类型前缀）
 				if len(data) > 1 {
-					buf.Write(data[1:])
+					actualContent := data[1:]
+					buf.Write(actualContent)
+					// 记录收到的内容（调试用）
+					preview := string(actualContent)
+					if len(preview) > 100 {
+						preview = preview[:100] + "..."
+					}
+					log.Printf("ttyd: received OUTPUT [%d bytes]: %q", len(actualContent), preview)
 				}
 				msgCount++
 				lastDataTime = time.Now() // 更新最后收到数据的时间
@@ -365,14 +372,8 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		return "", err
 	}
 
-	// 发送 Ctrl+D (EOF) 告诉 Q CLI 输入结束，开始处理
-	log.Printf("ttyd: sending Ctrl+D to signal EOF")
-	if err := c.sendCtrlD(); err != nil {
-		return "", err
-	}
-
-	// 发送 prompt 后，使用 readResponse 而不是 readUntilPrompt
-	// 因为 Q CLI 在处理时不会发送中间数据，不需要智能超时
+	// bash 包装器会在收到输入后通过管道发送给 q chat
+	// q chat 处理完成后自动退出（因为 stdin 关闭）
 	return c.readResponse(ctx, idle)
 }
 
