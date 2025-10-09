@@ -106,6 +106,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
 	log.Printf("ttyd: hello message sent successfully")
+	// 发送一个回车以唤醒提示符（部分环境不主动回显）
+	_ = c.SendLine("")
 	// 尝试读到 prompt，读不全也不致命
 	log.Printf("ttyd: waiting for initial prompt...")
 	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
@@ -134,6 +136,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	_ = c.conn.SetReadDeadline(deadline)
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
+	// 容错：某些环境第一次读到的是欢迎 banner，不包含换行提示符，先宽松等待一次
+	softDeadline := time.Now().Add(idle / 2)
 
 	for {
 		// 检查 context 是否被取消
@@ -167,7 +171,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			bytes.HasSuffix(tail, []byte("$")) ||
 			bytes.Contains(buf.Bytes(), []byte("q>")) ||
 			bytes.Contains(buf.Bytes(), []byte("Amazon Q")) ||
-			len(dataStr) > 100 { // 如果收到足够多的数据，也认为准备好了
+			len(dataStr) > 100 ||
+			time.Now().After(softDeadline) { // 软超时后放行，避免长时间阻塞
 			log.Printf("ttyd: prompt detected, data length: %d", len(dataStr))
 			return dataStr, nil
 		}
