@@ -15,16 +15,18 @@ type Session struct {
 }
 
 type Opts struct {
-	WSURL          string
-	WSUser         string
-	WSPass         string
-	IdleTO         time.Duration
-	Handshake      time.Duration
+	WSURL     string
+	WSUser    string
+	WSPass    string
+	IdleTO    time.Duration
+	Handshake time.Duration
+	// auth/hello extras
 	TokenURL       string
 	AuthHeaderName string
 	AuthHeaderVal  string
 	Columns        int
 	Rows           int
+	KeepAlive      time.Duration
 }
 
 func New(ctx context.Context, o Opts) (*Session, error) {
@@ -39,6 +41,7 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 		AuthHeaderVal:  o.AuthHeaderVal,
 		Columns:        o.Columns,
 		Rows:           o.Rows,
+		KeepAlive:      o.KeepAlive,
 	})
 	if err != nil {
 		return nil, err
@@ -48,11 +51,11 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 
 // Slash commands
 func (s *Session) Load(path string) error {
-	_, err := s.cli.Ask(context.Background(), "/load "+path, s.opts.IdleTO)
-	return err
+	_, e := s.cli.Ask(context.Background(), "/load "+quotePath(path), s.opts.IdleTO)
+	return e
 }
 func (s *Session) Save(path string, force bool) error {
-	cmd := "/save " + path
+	cmd := "/save " + quotePath(path)
 	if force {
 		cmd += " -f"
 	}
@@ -72,7 +75,36 @@ func (s *Session) ContextClear() error {
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {
-	return s.cli.Ask(context.Background(), strings.TrimSpace(prompt), s.opts.IdleTO)
+	p := strings.TrimSpace(prompt)
+	if p == "" {
+		return "", fmt.Errorf("empty prompt")
+	}
+	out, err := s.cli.Ask(context.Background(), p, s.opts.IdleTO)
+	if err == nil {
+		return out, nil
+	}
+	if IsConnError(err) {
+		// try reconnect once
+		_ = s.cli.Close()
+		cli, e2 := ttyd.Dial(context.Background(), ttyd.DialOptions{
+			Endpoint:       s.opts.WSURL,
+			Username:       s.opts.WSUser,
+			Password:       s.opts.WSPass,
+			HandshakeTO:    s.opts.Handshake,
+			ReadIdleTO:     s.opts.IdleTO,
+			TokenURL:       s.opts.TokenURL,
+			AuthHeaderName: s.opts.AuthHeaderName,
+			AuthHeaderVal:  s.opts.AuthHeaderVal,
+			Columns:        s.opts.Columns,
+			Rows:           s.opts.Rows,
+			KeepAlive:      s.opts.KeepAlive,
+		})
+		if e2 == nil {
+			s.cli = cli
+			return s.cli.Ask(context.Background(), p, s.opts.IdleTO)
+		}
+	}
+	return "", err
 }
 
 func (s *Session) Close() error {
@@ -80,4 +112,22 @@ func (s *Session) Close() error {
 		return fmt.Errorf("nil client")
 	}
 	return s.cli.Close()
+}
+
+// IsConnError reports if err looks like a dropped/closed ws.
+func IsConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection") ||
+		strings.Contains(msg, "read/write on closed pipe") ||
+		strings.Contains(msg, "close 1006") ||
+		strings.Contains(msg, "going away")
+}
+
+func quotePath(p string) string {
+	q := strings.ReplaceAll(p, `\`, `\\`)
+	q = strings.ReplaceAll(q, `"`, `\"`)
+	return `"` + q + `"`
 }

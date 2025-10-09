@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"aiops-qproxy/internal/pool"
+	"aiops-qproxy/internal/qflow"
 	"aiops-qproxy/internal/store"
 )
 
@@ -32,67 +33,50 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	}
 	convPath := o.conv.PathFor(sopID)
 
-	// 2) lease a session with retry on connection error
-	var out string
-	maxRetries := 3
-	for i := 0; i < maxRetries; i++ {
-		lease, err := o.pool.Acquire(ctx)
-		if err != nil {
-			return "", err
+	// 2) lease a session
+	lease, err := o.pool.Acquire(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer lease.Release()
+	s := lease.Session()
+
+	// Always cleanup the session before releasing (avoid context leakage)
+	defer func() {
+		if e := s.ContextClear(); e != nil {
+			lease.MarkBroken()
 		}
-		s := lease.Session()
-
-		// 3) /load previous conversation if exists
-		if _, err := os.Stat(convPath); err == nil {
-			_ = s.Load(convPath)
+		if e := s.Clear(); e != nil {
+			lease.MarkBroken()
 		}
+	}()
 
-		// 4) ask with current prompt
-		out, err = s.AskOnce(in.Prompt)
-		if err != nil {
-			// 如果是连接错误，释放当前连接并重试
-			lease.Release()
-			if isConnectionError(err) && i < maxRetries-1 {
-				continue
-			}
-			return "", err
+	// 3) /load previous conversation if exists
+	if _, err := os.Stat(convPath); err == nil {
+		if e := s.Load(convPath); e != nil && qflow.IsConnError(e) {
+			lease.MarkBroken()
+			return "", e
 		}
+	}
 
-		// 5) compact + save (overwrite), then clear context/history
-		_ = s.Compact()
-		_ = s.Save(convPath, true)
-		_ = s.ContextClear()
-		_ = s.Clear()
+	// 4) ask with current prompt
+	out, err := s.AskOnce(strings.TrimSpace(in.Prompt))
+	if err != nil { // cleanup defer will run
+		if qflow.IsConnError(err) {
+			lease.MarkBroken()
+		}
+		return "", err
+	}
 
-		// 成功完成，释放连接
-		lease.Release()
-		break
+	// 5) compact + save (overwrite)
+	if e := s.Compact(); e != nil && qflow.IsConnError(e) {
+		lease.MarkBroken()
+		return "", e
+	}
+	if e := s.Save(convPath, true); e != nil && qflow.IsConnError(e) {
+		lease.MarkBroken()
+		return "", e
 	}
 
 	return out, nil
-}
-
-// 判断是否为连接错误
-func isConnectionError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := err.Error()
-	connectionErrors := []string{
-		"broken pipe",
-		"connection reset",
-		"connection refused",
-		"network is unreachable",
-		"i/o timeout",
-		"use of closed network connection",
-	}
-
-	for _, connErr := range connectionErrors {
-		if strings.Contains(errStr, connErr) {
-			return true
-		}
-	}
-
-	return false
 }

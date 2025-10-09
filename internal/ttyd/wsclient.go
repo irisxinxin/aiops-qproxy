@@ -21,8 +21,8 @@ import (
 type Client struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
-	// config for reconnects or hello
-	opt DialOptions
+	opt  DialOptions
+	done chan struct{}
 }
 
 type DialOptions struct {
@@ -32,12 +32,13 @@ type DialOptions struct {
 	InsecureTLS bool
 	HandshakeTO time.Duration
 	ReadIdleTO  time.Duration
-	// auth handshake
-	TokenURL       string // optional explicit token endpoint; if empty, infer from Endpoint
-	AuthHeaderName string // for -H header auth (through reverse proxy)
+	// ttyd auth & hello
+	TokenURL       string // optional override; default: infer from Endpoint -> /token
+	AuthHeaderName string // for -H header auth (reverse proxy mode)
 	AuthHeaderVal  string
 	Columns        int
 	Rows           int
+	KeepAlive      time.Duration // ping interval; 0=disable
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -73,12 +74,12 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := &Client{conn: conn, opt: opt}
+	c := &Client{conn: conn, opt: opt, done: make(chan struct{})}
 
-	// Immediately send ttyd hello with AuthToken
+	// --- Send ttyd hello (JSON_DATA first frame) with AuthToken ---
 	token, _ := c.fetchToken(ctx)
 	if token == "" {
-		// fallbacks
+		// fallbacks: -c user:pass or -H header value
 		if opt.Username != "" {
 			token = base64.StdEncoding.EncodeToString([]byte(opt.Username + ":" + opt.Password))
 		} else if opt.AuthHeaderVal != "" {
@@ -97,15 +98,19 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		"rows":      opt.Rows,
 	}
 	b, _ := json.Marshal(hello)
-	// IMPORTANT: ttyd identifies JSON_DATA by first byte '{'
-	// Binary frame is acceptable; send as BinaryMessage.
+	// ttyd identifies JSON_DATA by first byte '{' — send binary JSON frame.
 	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
 
-	// consume banner until initial prompt
+	// consume initial banner until prompt to ensure ready
 	_, _ = c.readUntilPrompt(ctx, opt.ReadIdleTO)
+
+	// keepalive pings
+	if opt.KeepAlive > 0 {
+		go c.keepalive()
+	}
 	return c, nil
 }
 
@@ -129,7 +134,9 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			continue
 		}
 		buf.Write(data)
-		if bytes.Contains(buf.Bytes(), []byte("\n> ")) {
+		// Be strict: treat "\n>" as prompt only at tail (ignoring whitespace)
+		tail := bytes.TrimRight(buf.Bytes(), " \r\n")
+		if bytes.HasSuffix(tail, []byte("\n>")) {
 			out := buf.String()
 			return out, nil
 		}
@@ -147,14 +154,34 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	return c.readUntilPrompt(ctx, idle)
 }
 
+func (c *Client) keepalive() {
+	t := time.NewTicker(c.opt.KeepAlive)
+	defer t.Stop()
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-t.C:
+			c.mu.Lock()
+			_ = c.conn.WriteControl(websocket.PingMessage, []byte("k"), time.Now().Add(5*time.Second))
+			c.mu.Unlock()
+		}
+	}
+}
+
 func (c *Client) Close() error {
+	select {
+	case <-c.done:
+	default:
+		close(c.done)
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn.Close()
 }
 
 func (c *Client) fetchToken(ctx context.Context) (string, error) {
-	// infer token base: ws[s]://host[:port]/ws -> http[s]://host[:port]
+	// infer default token URL: ws[s]://host[:port]/ws -> http[s]://host[:port]/token
 	base := c.opt.TokenURL
 	if base == "" {
 		u, err := url.Parse(c.opt.Endpoint)
