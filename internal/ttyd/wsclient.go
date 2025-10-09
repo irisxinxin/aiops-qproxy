@@ -117,8 +117,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
 	log.Printf("ttyd: hello message sent successfully")
-	// 发送一个回车以唤醒提示符（部分环境不主动回显）
+	// 发送一个回车并发送 Ctrl-C 以中断初始化 spinner，进入可交互提示符
 	_ = c.SendLine("")
+	_ = c.sendCtrlC()
 	// 强制读到提示符，否则认为初始化失败
 	log.Printf("ttyd: waiting for initial prompt...")
 	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
@@ -139,14 +140,20 @@ func (c *Client) SendLine(line string) error {
 	return c.conn.WriteMessage(websocket.TextMessage, []byte(line+"\r"))
 }
 
+// 发送 Ctrl-C
+func (c *Client) sendCtrlC() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// Ctrl-C 字符 0x03
+	return c.conn.WriteMessage(websocket.TextMessage, []byte{0x03})
+}
+
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
 	deadline := time.Now().Add(idle)
 	_ = c.conn.SetReadDeadline(deadline)
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
-	// 容错：某些环境第一次读到的是欢迎 banner，不包含换行提示符，先宽松等待一次
-	softDeadline := time.Now().Add(idle / 2)
 
 	for {
 		// 检查 context 是否被取消
@@ -174,14 +181,11 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		dataStr := buf.String()
 		tail := bytes.TrimRight(buf.Bytes(), " \r\n")
 
-		// 放宽提示符匹配条件
-		if bytes.HasSuffix(tail, []byte("\n>")) ||
-			bytes.HasSuffix(tail, []byte(">")) ||
-			bytes.HasSuffix(tail, []byte("$")) ||
-			bytes.Contains(buf.Bytes(), []byte("q>")) ||
-			bytes.Contains(buf.Bytes(), []byte("Amazon Q")) ||
-			len(dataStr) > 100 ||
-			time.Now().After(softDeadline) { // 软超时后放行，避免长时间阻塞
+		// 更严格的提示符判定，避免在 spinner 阶段过早返回
+		if bytes.HasSuffix(tail, []byte("\n> ")) ||
+			bytes.HasSuffix(tail, []byte("q> ")) ||
+			bytes.HasSuffix(tail, []byte("> ")) ||
+			bytes.Contains(buf.Bytes(), []byte("\nq> ")) {
 			log.Printf("ttyd: prompt detected, data length: %d", len(dataStr))
 			return dataStr, nil
 		}
