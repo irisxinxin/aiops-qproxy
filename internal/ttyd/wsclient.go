@@ -43,8 +43,11 @@ type Client struct {
 	mu   sync.Mutex
 	url  string
 	// config for reconnects or hello
-	opt  DialOptions
-	done chan struct{}
+	opt           DialOptions
+	done          chan struct{}
+	keepaliveQuit chan struct{}
+	pingTicker    *time.Ticker
+	readIdle      time.Duration
 }
 
 type helloFrame struct {
@@ -89,18 +92,26 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	}
 	log.Printf("ttyd: WebSocket connection established")
 	c := &Client{
-		conn: conn,
-		url:  u.String(),
-		opt:  opt,
-		done: make(chan struct{}),
+		conn:          conn,
+		url:           u.String(),
+		opt:           opt,
+		done:          make(chan struct{}),
+		keepaliveQuit: make(chan struct{}),
+		readIdle:      opt.ReadIdleTO,
 	}
+	// 读限制与超时，Pong 续期
+	c.conn.SetReadLimit(16 << 20)
+	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
+	c.conn.SetPongHandler(func(string) error {
+		return c.conn.SetReadDeadline(time.Now().Add(c.readIdle))
+	})
 
 	// ---- 首帧：只发 columns/rows；NoAuth 下不带 AuthToken ----
 	hello := helloFrame{Columns: 120, Rows: 30}
 	// （如果以后需要支持鉴权模式，这里可以根据 opt.NoAuth=false 去附加 AuthToken）
 	b, _ := json.Marshal(&hello)
 	log.Printf("ttyd: sending hello message: %s", string(b))
-	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+	if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
 		log.Printf("ttyd: hello message failed: %v", err)
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
@@ -108,17 +119,15 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	log.Printf("ttyd: hello message sent successfully")
 	// 发送一个回车以唤醒提示符（部分环境不主动回显）
 	_ = c.SendLine("")
-	// 尝试读到 prompt，读不全也不致命
+	// 强制读到提示符，否则认为初始化失败
 	log.Printf("ttyd: waiting for initial prompt...")
-	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
-	if err != nil {
-		log.Printf("ttyd: failed to read initial prompt: %v", err)
-		// 不返回错误，继续使用连接
-	} else {
-		log.Printf("ttyd: initial prompt received successfully")
+	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ttyd init read failed: %w", err)
 	}
 
 	if opt.KeepAlive > 0 {
+		c.pingTicker = time.NewTicker(opt.KeepAlive)
 		go c.keepalive()
 	}
 	return c, nil
@@ -192,13 +201,11 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 }
 
 func (c *Client) keepalive() {
-	t := time.NewTicker(c.opt.KeepAlive)
-	defer t.Stop()
 	for {
 		select {
-		case <-c.done:
+		case <-c.keepaliveQuit:
 			return
-		case <-t.C:
+		case <-c.pingTicker.C:
 			c.mu.Lock()
 			_ = c.conn.WriteControl(websocket.PingMessage, []byte("k"), time.Now().Add(5*time.Second))
 			c.mu.Unlock()
@@ -208,11 +215,20 @@ func (c *Client) keepalive() {
 
 func (c *Client) Close() error {
 	select {
-	case <-c.done:
+	case <-c.keepaliveQuit:
 	default:
-		close(c.done)
+		close(c.keepaliveQuit)
+	}
+	if c.pingTicker != nil {
+		c.pingTicker.Stop()
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn.Close()
+}
+
+// Ping 健康探针
+func (c *Client) Ping(ctx context.Context) error {
+	deadline := time.Now().Add(5 * time.Second)
+	return c.conn.WriteControl(websocket.PingMessage, []byte("k"), deadline)
 }

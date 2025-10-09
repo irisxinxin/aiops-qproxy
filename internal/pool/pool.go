@@ -66,6 +66,7 @@ func (l *Lease) MarkBroken()             { l.broken = true }
 func (l *Lease) Release() {
 	if l.broken {
 		// Replace it in background
+		_ = l.s.Close()
 		go l.p.fillOne(context.Background())
 		return
 	}
