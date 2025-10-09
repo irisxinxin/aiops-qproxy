@@ -63,16 +63,16 @@ func main() {
 
 	p, err := pool.New(ctx, n, qo)
 	if err != nil {
-		panic(err)
+		log.Fatalf("pool init failed: %v", err)
 	}
 
 	cs, err := store.NewConvStore(root)
 	if err != nil {
-		panic(err)
+		log.Fatalf("convstore init failed: %v", err)
 	}
 	sm, err := store.LoadSOPMap(mpath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("sopmap load failed: %v", err)
 	}
 	orc := runner.NewOrchestrator(p, sm, cs)
 	log.Printf("incident-worker: ws=%s noauth=%v pool=%d", wsURL, noauth, n)

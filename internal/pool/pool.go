@@ -69,8 +69,9 @@ func (l *Lease) Release() {
 
 func (p *Pool) fillOne(ctx context.Context) {
 	backoff := 500 * time.Millisecond
-	for attempt := 1; ; attempt++ {
-		log.Printf("pool: attempting to create session (attempt %d)", attempt)
+	maxAttempts := 10 // 最大重试次数
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		log.Printf("pool: attempting to create session (attempt %d/%d)", attempt, maxAttempts)
 		s, err := qflow.New(ctx, p.opts)
 		if err == nil {
 			log.Printf("pool: session created successfully")
@@ -86,7 +87,13 @@ func (p *Pool) fillOne(ctx context.Context) {
 		if backoff < 8*time.Second {
 			backoff = time.Duration(math.Min(float64(backoff*2), float64(8*time.Second)))
 		}
-		log.Printf("pool: dial failed (attempt %d): %v; retry in %v", attempt, err, sleep)
+		log.Printf("pool: dial failed (attempt %d/%d): %v; retry in %v", attempt, maxAttempts, err, sleep)
+
+		if attempt == maxAttempts {
+			log.Printf("pool: max attempts reached, giving up")
+			return
+		}
+
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
