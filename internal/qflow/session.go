@@ -67,11 +67,17 @@ func (s *Session) Compact() error {
 	return err
 }
 func (s *Session) Clear() error {
-	_, err := s.cli.Ask(context.Background(), "/clear", s.opts.IdleTO)
+	return s.ClearWithContext(context.Background())
+}
+func (s *Session) ClearWithContext(ctx context.Context) error {
+	_, err := s.cli.Ask(ctx, "/clear", s.opts.IdleTO)
 	return err
 }
 func (s *Session) ContextClear() error {
-	_, err := s.cli.Ask(context.Background(), "/context clear", s.opts.IdleTO)
+	return s.ContextClearWithContext(context.Background())
+}
+func (s *Session) ContextClearWithContext(ctx context.Context) error {
+	_, err := s.cli.Ask(ctx, "/context clear", s.opts.IdleTO)
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {

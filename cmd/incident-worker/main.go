@@ -249,11 +249,14 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanText(out)})
 	})
 
-	// 可选开启 pprof
+	// 可选开启 pprof（在独立端口上使用 DefaultServeMux）
 	if getenv("QPROXY_PPROF", "") == "1" {
 		go func() {
+			// pprof handlers 已通过 _ "net/http/pprof" 注册到 DefaultServeMux
 			log.Printf("pprof listening on 127.0.0.1:6060")
-			_ = http.ListenAndServe("127.0.0.1:6060", nil)
+			if err := http.ListenAndServe("127.0.0.1:6060", nil); err != nil {
+				log.Printf("pprof server error: %v", err)
+			}
 		}()
 	}
 

@@ -136,16 +136,25 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 func (c *Client) SendLine(line string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.conn.WriteMessage(websocket.TextMessage, []byte(line+"\r"))
+	// ttyd 1.7.4 协议：客户端输入需要以 "0" (INPUT 类型) 开头
+	// 格式: "0" + 实际输入内容 + "\n"
+	msg := "0" + line + "\n"
+	return c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 
 // 发送 Ctrl-C
 func (c *Client) sendCtrlC() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	// Ctrl-C 字符 0x03
-	return c.conn.WriteMessage(websocket.TextMessage, []byte{0x03})
+	// ttyd 1.7.4 协议：Ctrl-C 也需要 INPUT 类型前缀
+	// 格式: "0" + 0x03
+	return c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03})
 }
+
+// 全局编译正则表达式，避免重复编译
+var (
+	ansiRegex = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+)
 
 // isAlnum 检查字符是否为字母或数字
 func isAlnum(b byte) bool {
@@ -158,7 +167,6 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	_ = c.conn.SetReadDeadline(hardDeadline)
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
-	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 	msgCount := 0
 	promptLikeSeen := false // 是否看到过疑似提示符
 
@@ -180,7 +188,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 				if len(tail) > 500 {
 					tail = tail[len(tail)-500:]
 				}
-				cleaned := ansi.ReplaceAllString(string(tail), "")
+				cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
 				// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
@@ -198,15 +206,32 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			continue
 		}
 
-		buf.Write(data)
-		msgCount++
+		// ttyd 1.7.4 协议：服务器发送的消息以类型字符开头
+		// '0' = OUTPUT (终端输出), '1' = SET_WINDOW_TITLE, '2' = SET_PREFERENCES
+		// 我们只关心 OUTPUT，需要跳过第一个字节（类型前缀）
+		var actualData []byte
+		if len(data) > 0 {
+			msgType := data[0]
+			if msgType == '0' {
+				// OUTPUT 类型，写入实际内容（跳过类型前缀）
+				if len(data) > 1 {
+					actualData = data[1:]
+					buf.Write(actualData)
+				}
+				msgCount++
+			} else {
+				// 其他类型（SET_WINDOW_TITLE 等），忽略
+				log.Printf("ttyd: ignoring message type '%c'", msgType)
+				continue // 跳过这个消息，继续读下一个
+			}
+		}
 
 		// 只检查最后 500 字节，避免对超大 buf 做全量正则替换（性能优化）
 		tail := buf.Bytes()
 		if len(tail) > 500 {
 			tail = tail[len(tail)-500:]
 		}
-		cleaned := ansi.ReplaceAllString(string(tail), "")
+		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
 		// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
@@ -220,7 +245,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		// 智能超时策略：
 		// 1. 看到 ">" 字符后才用短超时（3秒），因为提示符可能快到了
 		// 2. 否则用长超时（30秒），给 Q CLI banner 足够时间
-		if strings.Contains(string(data), ">") || promptLikeSeen {
+		// 注意：这里检查去除前缀后的实际内容
+		if len(actualData) > 0 && strings.Contains(string(actualData), ">") || promptLikeSeen {
 			promptLikeSeen = true
 			_ = c.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		} else {
@@ -233,7 +259,6 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 // 与 readUntilPrompt 不同，这里使用简单的固定超时策略
 func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
-	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 	msgCount := 0
 	lastDataTime := time.Now()
 
@@ -259,7 +284,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 				if len(tail) > 500 {
 					tail = tail[len(tail)-500:]
 				}
-				cleaned := ansi.ReplaceAllString(string(tail), "")
+				cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
@@ -276,16 +301,29 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 			continue
 		}
 
-		buf.Write(data)
-		msgCount++
-		lastDataTime = time.Now() // 更新最后收到数据的时间
+		// ttyd 1.7.4 协议：服务器发送的消息以类型字符开头
+		// '0' = OUTPUT (终端输出), 我们只关心这个类型
+		if len(data) > 0 {
+			msgType := data[0]
+			if msgType == '0' {
+				// OUTPUT 类型，写入实际内容（跳过类型前缀）
+				if len(data) > 1 {
+					buf.Write(data[1:])
+				}
+				msgCount++
+				lastDataTime = time.Now() // 更新最后收到数据的时间
+			} else {
+				// 其他类型，忽略
+				log.Printf("ttyd: ignoring message type '%c'", msgType)
+			}
+		}
 
 		// 检查是否收到提示符（只检查末尾 500 字节）
 		tail := buf.Bytes()
 		if len(tail) > 500 {
 			tail = tail[len(tail)-500:]
 		}
-		cleaned := ansi.ReplaceAllString(string(tail), "")
+		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
@@ -300,6 +338,13 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("empty prompt")
 	}
+	// 检查 context 是否已取消
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
 	// 记录发送的 prompt（截断过长的内容）
 	promptPreview := prompt
 	if len(promptPreview) > 200 {
@@ -329,8 +374,10 @@ func (c *Client) keepalive() {
 }
 
 func (c *Client) Close() error {
+	// 安全关闭 keepalive goroutine
 	select {
 	case <-c.keepaliveQuit:
+		// 已经关闭
 	default:
 		close(c.keepaliveQuit)
 	}

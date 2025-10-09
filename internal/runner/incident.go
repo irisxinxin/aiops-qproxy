@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"strings"
+	"time"
 
 	"aiops-qproxy/internal/pool"
 	"aiops-qproxy/internal/qflow"
@@ -42,12 +43,21 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	s := lease.Session()
 
 	// Always cleanup the session before releasing (avoid context leakage)
+	// 使用带超时的 context，避免清理操作长时间阻塞
 	defer func() {
-		if e := s.ContextClear(); e != nil {
-			lease.MarkBroken()
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cleanupCancel()
+
+		// 串行执行清理，使用带超时的 context
+		if e := s.ContextClearWithContext(cleanupCtx); e != nil {
+			if qflow.IsConnError(e) {
+				lease.MarkBroken()
+			}
 		}
-		if e := s.Clear(); e != nil {
-			lease.MarkBroken()
+		if e := s.ClearWithContext(cleanupCtx); e != nil {
+			if qflow.IsConnError(e) {
+				lease.MarkBroken()
+			}
 		}
 	}()
 

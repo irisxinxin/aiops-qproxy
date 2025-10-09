@@ -25,21 +25,12 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 		opts:  o,
 	}
 
-	// 先尝试创建一个连接，确保基本功能可用
-	log.Printf("pool: attempting to create initial session...")
-	s, err := qflow.New(ctx, o)
-	if err != nil {
-		log.Printf("pool: initial session creation failed: %v", err)
-		// 不返回错误，继续异步填充
-	} else {
-		p.slots <- s
-		log.Printf("pool: initial session created successfully")
-	}
-
-	// 异步创建其他连接，但限制并发数
+	// 异步创建所有连接，第一个立即尝试，后续间隔创建避免过载
 	go func() {
-		for i := 1; i < size; i++ {
-			time.Sleep(time.Duration(i) * time.Second) // 间隔创建，避免过载
+		for i := 0; i < size; i++ {
+			if i > 0 {
+				time.Sleep(time.Duration(i) * time.Second)
+			}
 			p.fillOne(context.Background())
 		}
 	}()
