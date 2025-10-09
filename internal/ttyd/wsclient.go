@@ -199,8 +199,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			return buf.String(), nil
 		}
 
-		// 每次读到数据后，短超时(500ms)等后续片段，避免提示符被拆分
-		_ = c.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+		// 每次读到数据后，短超时(2s)等后续片段，给 Q CLI 初始化留足时间
+		_ = c.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	}
 }
 
