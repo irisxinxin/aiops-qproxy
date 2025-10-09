@@ -140,10 +140,24 @@ WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
 echo "incident-worker PID: $WORKER_PID"
 
-# 等待服务就绪（最多 30s）
+# 先等待端口 8080 打开（最多 60s）
+echo "⏳ 等待 incident-worker 端口打开..."
+for i in $(seq 1 60); do
+  if ss -tlnp | grep -q ":8080 "; then
+    break
+  fi
+  sleep 1
+  if [ $i -eq 60 ]; then
+    echo "❌ 端口 8080 未打开"
+    tail -50 ./logs/incident-worker-real.log || true
+    exit 1
+  fi
+done
+
+# 再等待服务就绪（最多 120s）
 echo "⏳ 等待 incident-worker 就绪..."
 ok=false
-for i in $(seq 1 30); do
+for i in $(seq 1 120); do
   code=$(curl -sS -o /tmp/qproxy_ready.$$ -w '%{http_code}' http://127.0.0.1:8080/readyz || true)
   if [ "$code" = "200" ]; then
     ok=true
@@ -153,7 +167,7 @@ for i in $(seq 1 30); do
   sleep 1
 done
 if [ "$ok" != true ]; then
-  echo "❌ incident-worker 启动超时"
+  echo "❌ incident-worker 就绪超时"
   echo "📝 查看详细日志："; tail -50 ./logs/incident-worker-real.log || true
   echo "🔍 端口状态："; ss -tlnp | grep -E ":7682|:8080" || true
   exit 1
