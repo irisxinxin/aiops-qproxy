@@ -170,8 +170,8 @@ func (c *Client) SendLine(line string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// ttyd 1.7.4 协议：客户端输入需要以 "0" (INPUT 类型) 开头
-	// 格式: "0" + 实际输入内容 + "\n"
-	msg := "0" + line + "\n"
+	// 格式: "0" + 实际输入内容 + "\r" (回车符，触发 Q CLI 执行)
+	msg := "0" + line + "\r"
 	return c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
 

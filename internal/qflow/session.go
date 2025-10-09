@@ -107,6 +107,7 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 			ConnectTO:      s.opts.ConnectTO,
 			ReadIdleTO:     s.opts.IdleTO,
 			InsecureTLS:    s.opts.InsecureTLS,
+			WakeMode:       s.opts.WakeMode,
 			TokenURL:       s.opts.TokenURL,
 			AuthHeaderName: s.opts.AuthHeaderName,
 			AuthHeaderVal:  s.opts.AuthHeaderVal,
