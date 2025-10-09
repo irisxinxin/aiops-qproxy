@@ -126,7 +126,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 只有收到一次用户输入（哪怕空行或 Ctrl-C）才给提示符。
 	mode := opt.WakeMode
 	if mode == "" {
-		mode = "ctrlc"
+		mode = "newline" // 默认使用 newline，避免 Ctrl-C 导致 Q CLI 退出
 	}
 	log.Printf("ttyd: waking Q CLI with mode: %s", mode)
 	switch mode {

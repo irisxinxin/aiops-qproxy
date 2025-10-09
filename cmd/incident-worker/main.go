@@ -50,7 +50,7 @@ func main() {
 	if !noauth && user == "" && authHeaderName == "" {
 		noauth = true
 	}
-	wake := strings.ToLower(getenv("QPROXY_Q_WAKE", "ctrlc")) // ctrlc/newline/none
+	wake := strings.ToLower(getenv("QPROXY_Q_WAKE", "newline")) // ctrlc/newline/none (默认 newline 避免 Q CLI 退出)
 
 	n, _ := strconv.Atoi(nStr)
 	ctx := context.Background()
