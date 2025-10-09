@@ -227,14 +227,25 @@ func main() {
 			return
 		}
 
+		// 记录收到的请求
+		promptPreview := in.Prompt
+		if len(promptPreview) > 200 {
+			promptPreview = promptPreview[:200] + "... (truncated)"
+		}
+		log.Printf("incident: received request - incident_key=%s, prompt_len=%d, preview=%q",
+			in.IncidentKey, len(in.Prompt), promptPreview)
+
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
 
 		out, err := orc.Process(ctx, in)
 		if err != nil {
+			log.Printf("incident: processing failed for %s: %v", in.IncidentKey, err)
 			http.Error(w, fmt.Sprintf("process error: %v", err), http.StatusBadGateway)
 			return
 		}
+
+		log.Printf("incident: processing completed for %s, response_len=%d", in.IncidentKey, len(out))
 		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanText(out)})
 	})
 

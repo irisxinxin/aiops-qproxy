@@ -231,14 +231,90 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	}
 }
 
+// readResponse 读取 Q CLI 的响应（发送 prompt 后调用）
+// 与 readUntilPrompt 不同，这里使用简单的固定超时策略
+func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
+	var buf bytes.Buffer
+	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+	msgCount := 0
+	lastDataTime := time.Now()
+
+	log.Printf("ttyd: reading response (timeout: %v)", idle)
+
+	for {
+		// 设置读取超时：距离上次收到数据的 idle 时间
+		deadline := lastDataTime.Add(idle)
+		_ = c.conn.SetReadDeadline(deadline)
+
+		select {
+		case <-ctx.Done():
+			log.Printf("ttyd: context cancelled after %d messages", msgCount)
+			return "", ctx.Err()
+		default:
+		}
+
+		typ, data, err := c.conn.ReadMessage()
+		if err != nil {
+			// 超时检查：如果 buf 里已有提示符，说明响应完成
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				tail := buf.Bytes()
+				if len(tail) > 500 {
+					tail = tail[len(tail)-500:]
+				}
+				cleaned := ansi.ReplaceAllString(string(tail), "")
+				cleaned = strings.TrimRight(cleaned, " \r\n\t")
+				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+						log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+						return buf.String(), nil
+					}
+				}
+			}
+			log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+			return "", err
+		}
+
+		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
+			continue
+		}
+
+		buf.Write(data)
+		msgCount++
+		lastDataTime = time.Now() // 更新最后收到数据的时间
+
+		// 检查是否收到提示符（只检查末尾 500 字节）
+		tail := buf.Bytes()
+		if len(tail) > 500 {
+			tail = tail[len(tail)-500:]
+		}
+		cleaned := ansi.ReplaceAllString(string(tail), "")
+		cleaned = strings.TrimRight(cleaned, " \r\n\t")
+		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+				log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+				return buf.String(), nil
+			}
+		}
+	}
+}
+
 func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (string, error) {
 	if strings.TrimSpace(prompt) == "" {
 		return "", errors.New("empty prompt")
 	}
+	// 记录发送的 prompt（截断过长的内容）
+	promptPreview := prompt
+	if len(promptPreview) > 200 {
+		promptPreview = promptPreview[:200] + "... (truncated, total " + fmt.Sprintf("%d", len(prompt)) + " chars)"
+	}
+	log.Printf("ttyd: sending prompt: %q", promptPreview)
+
 	if err := c.SendLine(prompt); err != nil {
 		return "", err
 	}
-	return c.readUntilPrompt(ctx, idle)
+	// 发送 prompt 后，使用 readResponse 而不是 readUntilPrompt
+	// 因为 Q CLI 在处理时不会发送中间数据，不需要智能超时
+	return c.readResponse(ctx, idle)
 }
 
 func (c *Client) keepalive() {
