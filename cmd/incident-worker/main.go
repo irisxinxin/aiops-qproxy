@@ -173,13 +173,19 @@ func main() {
 	csi := regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 	osc := regexp.MustCompile(`\x1b\][^\a]*\x07`)
 	ctrl := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`) // 保留\t\n\r
+	spinner := regexp.MustCompile(`[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Thinking\.\.\.`) // 清除 spinner 动画
 	cleanText := func(s string) string {
 		s = csi.ReplaceAllString(s, "")
 		s = osc.ReplaceAllString(s, "")
 		s = ctrl.ReplaceAllString(s, "")
+		s = spinner.ReplaceAllString(s, "") // 移除 spinner
 		// 归一化换行
 		s = strings.ReplaceAll(s, "\r\n", "\n")
 		s = strings.ReplaceAll(s, "\r", "\n")
+		// 压缩多个连续换行为最多2个
+		for strings.Contains(s, "\n\n\n") {
+			s = strings.ReplaceAll(s, "\n\n\n", "\n\n")
+		}
 		// 去除多余首尾空白
 		return strings.TrimSpace(s)
 	}

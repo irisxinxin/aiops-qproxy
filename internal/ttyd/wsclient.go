@@ -298,22 +298,23 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 }
 
 // readResponse 读取 Q CLI 的响应（发送 prompt 后调用）
-// 使用智能超时策略：看到提示符后缩短等待时间
+// 使用智能超时策略：看到响应内容和提示符后缩短等待时间
 func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
 	msgCount := 0
 	lastDataTime := time.Now()
-	promptSeen := false // 是否已看到提示符 ">"
+	promptCount := 0 // 计数提示符出现次数（第一次是回显，第二次是响应结束）
+	hasContent := false // 是否已收到实际内容（非回显）
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
 
 	for {
 		// 智能超时策略：
-		// - 看到提示符 ">" 后，用短超时（3秒），因为响应可能已完成
-		// - 否则用长超时（idle），给 Q CLI 足够时间思考
+		// - 看到第二个提示符且有实际内容后，用短超时（5秒），响应可能已完成
+		// - 否则用长超时（idle），给 Q CLI 足够时间思考和生成响应
 		timeout := idle
-		if promptSeen {
-			timeout = 3 * time.Second
+		if promptCount >= 2 && hasContent {
+			timeout = 5 * time.Second
 		}
 		deadline := lastDataTime.Add(timeout)
 		_ = c.conn.SetReadDeadline(deadline)
@@ -359,15 +360,25 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 				if len(data) > 1 {
 					actualContent := data[1:]
 					buf.Write(actualContent)
+					content := string(actualContent)
 
 					// 检查是否包含提示符 ">"
-					if strings.Contains(string(actualContent), ">") {
-						promptSeen = true
-						log.Printf("ttyd: prompt detected in response, switching to short timeout")
+					if strings.Contains(content, ">") {
+						promptCount++
+						log.Printf("ttyd: prompt #%d detected in response", promptCount)
+					}
+					
+					// 检查是否有实际内容（不只是回显和提示符）
+					// 如果内容长度 > 50 或包含关键词，认为是实际响应
+					if len(content) > 50 || 
+					   strings.Contains(strings.ToLower(content), "hello") ||
+					   strings.Contains(content, "答") ||
+					   strings.Contains(content, "Thinking") {
+						hasContent = true
 					}
 
 					// 记录收到的内容（调试用）
-					preview := string(actualContent)
+					preview := content
 					if len(preview) > 100 {
 						preview = preview[:100] + "..."
 					}
