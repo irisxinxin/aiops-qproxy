@@ -168,12 +168,20 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
-			// 如果是超时，但 buf 里已有 "> "，说明提示符已到齐，返回成功
+			// 如果是超时，但 buf 里已有提示符，说明已到齐，返回成功
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				cleaned := ansi.ReplaceAllString(buf.String(), "")
-				cleaned = strings.TrimRight(cleaned, " \r\n")
-				if strings.HasSuffix(cleaned, "> ") || strings.HasSuffix(cleaned, "q> ") {
-					log.Printf("ttyd: prompt detected on timeout, data length: %d", buf.Len())
+				cleaned = strings.TrimRight(cleaned, " \r\n\t")
+				// 使用和正常检查相同的逻辑
+				if strings.HasSuffix(cleaned, ">") &&
+					(strings.HasSuffix(cleaned, "q>") ||
+						strings.HasSuffix(cleaned, "\n>") ||
+						strings.HasSuffix(cleaned, " >")) {
+					tailLen := 20
+					if len(cleaned) < tailLen {
+						tailLen = len(cleaned)
+					}
+					log.Printf("ttyd: prompt detected on timeout, cleaned tail: %q", cleaned[len(cleaned)-tailLen:])
 					return buf.String(), nil
 				}
 			}
