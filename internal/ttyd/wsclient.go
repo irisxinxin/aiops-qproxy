@@ -100,7 +100,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// （如果以后需要支持鉴权模式，这里可以根据 opt.NoAuth=false 去附加 AuthToken）
 	b, _ := json.Marshal(&hello)
 	log.Printf("ttyd: sending hello message: %s", string(b))
-	if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
+	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
 		log.Printf("ttyd: hello message failed: %v", err)
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)

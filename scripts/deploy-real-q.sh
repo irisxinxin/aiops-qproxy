@@ -129,7 +129,7 @@ echo "▶️  启动 incident-worker 服务 (NoAuth 模式)..."
 # 设置环境变量并启动服务
 env \
 QPROXY_WS_URL=ws://127.0.0.1:7682/ws \
-QPROXY_WS_POOL=5 \
+QPROXY_WS_POOL=1 \
 QPROXY_CONV_ROOT=./conversations \
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \
 QPROXY_HTTP_ADDR=:8080 \

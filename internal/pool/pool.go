@@ -22,22 +22,27 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 		slots: make(chan *qflow.Session, size),
 		opts:  o,
 	}
-	// Fill asynchronously; don't fail whole pool if some dials fail.
-	for i := 0; i < size; i++ {
-		go p.fillOne(ctx)
-	}
-	// Wait for at least one session to be ready
-	timer := time.NewTimer(30 * time.Second) // 增加等待时间到30秒，给Q CLI足够初始化时间
-	select {
-	case s := <-p.slots:
-		timer.Stop()
+
+	// 先尝试创建一个连接，确保基本功能可用
+	log.Printf("pool: attempting to create initial session...")
+	s, err := qflow.New(ctx, o)
+	if err != nil {
+		log.Printf("pool: initial session creation failed: %v", err)
+		// 不返回错误，继续异步填充
+	} else {
 		p.slots <- s
-		log.Printf("pool: at least one session ready")
-		return p, nil
-	case <-timer.C:
-		log.Printf("pool: no session ready after 30s; continuing with lazy fill")
-		return p, nil
+		log.Printf("pool: initial session created successfully")
 	}
+
+	// 异步创建其他连接，但限制并发数
+	go func() {
+		for i := 1; i < size; i++ {
+			time.Sleep(time.Duration(i) * time.Second) // 间隔创建，避免过载
+			p.fillOne(context.Background())
+		}
+	}()
+
+	return p, nil
 }
 
 type Lease struct {
