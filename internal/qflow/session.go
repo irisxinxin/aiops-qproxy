@@ -23,6 +23,7 @@ type Opts struct {
 	InsecureTLS bool
 	ConnectTO   time.Duration
 	NoAuth      bool
+	WakeMode    string // 唤醒 Q CLI 的方式: ctrlc/newline/none
 	// auth/hello extras
 	TokenURL       string // ignored when NoAuth
 	AuthHeaderName string // ignored when NoAuth
@@ -39,6 +40,7 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 		ConnectTO:      o.ConnectTO,
 		ReadIdleTO:     o.IdleTO,
 		InsecureTLS:    o.InsecureTLS,
+		WakeMode:       o.WakeMode,
 		TokenURL:       o.TokenURL,
 		AuthHeaderName: o.AuthHeaderName,
 		AuthHeaderVal:  o.AuthHeaderVal,

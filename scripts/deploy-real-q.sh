@@ -84,7 +84,7 @@ echo "🔌 启动真实 ttyd + Q CLI (NoAuth 模式)..."
 # 注意：env 变量要在 ttyd 前设置，避免被当作命令回显
 nohup env TERM=dumb NO_COLOR=1 CLICOLOR=0 \
   Q_MCP_AUTO_TRUST=true Q_MCP_SKIP_TRUST_PROMPTS=true Q_TOOLS_AUTO_TRUST=true \
-  ttyd -W -p 7682 q chat --no-interactive --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
+  ttyd -W -p 7682 q chat --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
 echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"

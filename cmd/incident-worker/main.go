@@ -50,6 +50,7 @@ func main() {
 	if !noauth && user == "" && authHeaderName == "" {
 		noauth = true
 	}
+	wake := strings.ToLower(getenv("QPROXY_Q_WAKE", "ctrlc")) // ctrlc/newline/none
 
 	n, _ := strconv.Atoi(nStr)
 	ctx := context.Background()
@@ -62,6 +63,7 @@ func main() {
 		ConnectTO:      10 * time.Second,  // 增加连接超时
 		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
 		NoAuth:         noauth,
+		WakeMode:       wake,
 		TokenURL:       tokenURL,
 		AuthHeaderName: authHeaderName,
 		AuthHeaderVal:  authHeaderVal,

@@ -37,6 +37,8 @@ type DialOptions struct {
 	ReadIdleTO  time.Duration
 	KeepAlive   time.Duration
 	InsecureTLS bool
+	// 唤醒 Q 的方式：ctrlc（默认）/ newline / none
+	WakeMode string
 }
 
 type Client struct {
@@ -118,8 +120,39 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
 	log.Printf("ttyd: hello message sent successfully")
-	// 等待 Q CLI 完全初始化并显示提示符
-	// 不要发送 Ctrl-C，让 MCP servers 自然加载完成
+
+	// ---- 关键：先"唤醒" Q CLI，再等提示符（避免卡在 MCP 初始化）----
+	// Q CLI 初启会加载多个 MCP 工具，默认要等它们 ready；
+	// 只有收到一次用户输入（哪怕空行或 Ctrl-C）才给提示符。
+	mode := opt.WakeMode
+	if mode == "" {
+		mode = "ctrlc"
+	}
+	log.Printf("ttyd: waking Q CLI with mode: %s", mode)
+	switch mode {
+	case "ctrlc":
+		// 发送 Ctrl-C + 回车，立刻进入可交互状态
+		// ttyd 1.7.4 协议：需要加 '0' (INPUT) 类型前缀
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03}); err != nil {
+			log.Printf("ttyd: wake Ctrl-C failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
+			log.Printf("ttyd: wake newline failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+	case "newline":
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
+			log.Printf("ttyd: wake newline failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+	case "none":
+		// 不发送任何唤醒字符
+	}
+
 	log.Printf("ttyd: waiting for initial prompt...")
 	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
 		_ = conn.Close()
