@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/exec"
 	"regexp"
@@ -236,6 +237,14 @@ func main() {
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanText(out)})
 	})
+
+	// 可选开启 pprof
+	if getenv("QPROXY_PPROF", "") == "1" {
+		go func() {
+			log.Printf("pprof listening on 127.0.0.1:6060")
+			_ = http.ListenAndServe("127.0.0.1:6060", nil)
+		}()
+	}
 
 	addr := getenv("QPROXY_HTTP_ADDR", ":8080")
 	log.Printf("incident-worker listening on %s (ws=%s noauth=%v)", addr, wsURL, noauth)

@@ -134,6 +134,7 @@ QPROXY_CONV_ROOT=./conversations \
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \
 QPROXY_HTTP_ADDR=:8080 \
 QPROXY_WS_INSECURE_TLS=0 \
+QPROXY_PPROF=1 \
 nohup ./bin/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
