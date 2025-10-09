@@ -118,10 +118,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
 	log.Printf("ttyd: hello message sent successfully")
-	// 发送一个回车并发送 Ctrl-C 以中断初始化 spinner，进入可交互提示符
-	_ = c.SendLine("")
-	_ = c.sendCtrlC()
-	// 强制读到提示符，否则认为初始化失败
+	// 等待 Q CLI 完全初始化并显示提示符
+	// 不要发送 Ctrl-C，让 MCP servers 自然加载完成
 	log.Printf("ttyd: waiting for initial prompt...")
 	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
 		_ = conn.Close()
