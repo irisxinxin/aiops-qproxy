@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +34,245 @@ func getenv(k, def string) string {
 	return def
 }
 
+// =========== SOP 相关结构体和函数 ===========
+
+type Alert struct {
+	Service   string          `json:"service"`
+	Category  string          `json:"category"`
+	Severity  string          `json:"severity"`
+	Region    string          `json:"region"`
+	Path      string          `json:"path"`
+	Metadata  json.RawMessage `json:"metadata"`
+	Threshold json.RawMessage `json:"threshold"`
+}
+
+type SopLine struct {
+	Keys      []string `json:"keys"`        // 匹配条件: svc:omada cat:cpu
+	Priority  string   `json:"priority"`    // HIGH/MIDDLE/LOW
+	Command   []string `json:"command"`     // 诊断命令列表
+	Metric    []string `json:"metric"`      // 需要检查的指标
+	Log       []string `json:"log"`         // 需要检查的日志
+	Parameter []string `json:"parameter"`   // 需要检查的参数
+	FixAction []string `json:"fix_action"`  // 修复操作
+}
+
+func jsonRawToString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw, &v); err == nil {
+		switch t := v.(type) {
+		case string:
+			return t
+		default:
+			b, _ := json.Marshal(v)
+			return string(b)
+		}
+	}
+	return strings.Trim(string(raw), "\"")
+}
+
+func parseSopJSONL(path string) ([]SopLine, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var out []SopLine
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		var one SopLine
+		if err := json.Unmarshal([]byte(line), &one); err != nil {
+			continue
+		}
+		out = append(out, one)
+	}
+	return out, sc.Err()
+}
+
+func collectSopLines(dir string) ([]SopLine, error) {
+	var merged []SopLine
+	walkFn := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".jsonl") {
+			lines, e := parseSopJSONL(path)
+			if e == nil {
+				merged = append(merged, lines...)
+			}
+		}
+		return nil
+	}
+	_ = filepath.WalkDir(dir, walkFn)
+	return merged, nil
+}
+
+func wildcardMatch(patt, val string) bool {
+	if patt == "*" {
+		return true
+	}
+	if !strings.Contains(patt, "*") {
+		return patt == val
+	}
+	reStr := "^" + regexp.QuoteMeta(patt)
+	reStr = strings.ReplaceAll(reStr, "\\*", ".*") + "$"
+	re := regexp.MustCompile(reStr)
+	return re.MatchString(val)
+}
+
+func keyMatches(keys []string, a Alert) bool {
+	if len(keys) == 0 {
+		return false
+	}
+	matches := 0
+L:
+	for _, k := range keys {
+		k = strings.TrimSpace(strings.ToLower(k))
+		parts := strings.SplitN(k, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		field, patt := parts[0], parts[1]
+		val := ""
+		switch field {
+		case "svc", "service":
+			val = strings.ToLower(a.Service)
+		case "cat", "category":
+			val = strings.ToLower(a.Category)
+		case "sev", "severity":
+			val = strings.ToLower(a.Severity)
+		case "region":
+			val = strings.ToLower(a.Region)
+		default:
+			continue L
+		}
+		if wildcardMatch(patt, val) {
+			matches++
+			continue
+		}
+		return false
+	}
+	return matches > 0
+}
+
+func replaceSOPTemplates(sop string, a Alert) string {
+	var metadata map[string]interface{}
+	if len(a.Metadata) > 0 {
+		json.Unmarshal(a.Metadata, &metadata)
+	}
+
+	getStr := func(m map[string]interface{}, keys ...string) string {
+		for _, k := range keys {
+			if v, ok := m[k]; ok {
+				if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+					return s
+				}
+			}
+		}
+		return ""
+	}
+
+	if expr, ok := metadata["expression"].(string); ok && expr != "" {
+		sop = strings.ReplaceAll(sop, "{{expression}}", expr)
+	}
+	if a.Path != "" {
+		sop = strings.ReplaceAll(sop, "{{alert_path}}", a.Path)
+	}
+	if a.Service != "" {
+		sop = strings.ReplaceAll(sop, "{{service_name}}", a.Service)
+		sop = strings.ReplaceAll(sop, "{{service名}}", a.Service)
+	}
+
+	startTime := getStr(metadata, "alert_start_time", "start_time", "start", "startsAt")
+	endTime := getStr(metadata, "alert_end_time", "end_time", "end", "endsAt")
+	if strings.TrimSpace(startTime) == "" {
+		startTime = "now-10m"
+	}
+	if strings.TrimSpace(endTime) == "" {
+		endTime = "now"
+	}
+	sop = strings.ReplaceAll(sop, "{{alert_start_time}}", startTime)
+	sop = strings.ReplaceAll(sop, "{{alert_end_time}}", endTime)
+
+	pointTime := getStr(metadata, "alert_time", "timestamp", "ts")
+	if strings.TrimSpace(pointTime) == "" {
+		pointTime = "now-10m"
+	}
+	sop = strings.ReplaceAll(sop, "alert_time", pointTime)
+
+	return sop
+}
+
+func buildSopContext(a Alert, dir string) string {
+	if strings.TrimSpace(dir) == "" {
+		return ""
+	}
+	lines, err := collectSopLines(dir)
+	if err != nil || len(lines) == 0 {
+		return ""
+	}
+
+	var hit []SopLine
+	for _, l := range lines {
+		if keyMatches(l.Keys, a) {
+			hit = append(hit, l)
+		}
+	}
+	if len(hit) == 0 {
+		return ""
+	}
+	sort.SliceStable(hit, func(i, j int) bool {
+		pi := strings.ToUpper(hit[i].Priority)
+		pj := strings.ToUpper(hit[j].Priority)
+		order := map[string]int{"HIGH": 0, "MIDDLE": 1, "LOW": 2}
+		return order[pi] < order[pj]
+	})
+
+	var b strings.Builder
+	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
+	seen := map[string]bool{}
+	appendList := func(prefix string, arr []string, limit int) {
+		cnt := 0
+		for _, x := range arr {
+			x = strings.TrimSpace(x)
+			if x == "" {
+				continue
+			}
+			x = replaceSOPTemplates(x, a)
+			key := prefix + "::" + x
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			b.WriteString("- " + prefix + ": " + x + "\n")
+			cnt++
+			if limit > 0 && cnt >= limit {
+				break
+			}
+		}
+	}
+
+	for _, s := range hit {
+		appendList("Command", s.Command, 5)
+		appendList("Metric", s.Metric, 5)
+		appendList("Log", s.Log, 3)
+		appendList("Parameter", s.Parameter, 3)
+		appendList("FixAction", s.FixAction, 3)
+	}
+
+	return b.String()
+}
+
 func main() {
 	// 默认裸跑直连 localhost
 	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
@@ -38,6 +281,8 @@ func main() {
 	nStr := getenv("QPROXY_WS_POOL", "3")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
+	sopDir := getenv("QPROXY_SOP_DIR", "./ctx/sop")      // SOP 目录
+	sopEnabled := getenv("QPROXY_SOP_ENABLED", "1")      // 是否启用 SOP
 	authHeaderName := getenv("QPROXY_WS_AUTH_HEADER_NAME", "")
 	authHeaderVal := getenv("QPROXY_WS_AUTH_HEADER_VAL", "")
 	tokenURL := getenv("QPROXY_WS_TOKEN_URL", "")
@@ -145,6 +390,7 @@ func main() {
 		return ""
 	}
 	buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, error) {
+		// 1. 优先使用外部构建器（保留当前优化的实现）
 		if cmd := getenv("QPROXY_PROMPT_BUILDER_CMD", ""); strings.TrimSpace(cmd) != "" {
 			c := exec.CommandContext(ctx, "bash", "-lc", cmd)
 			stdin, _ := c.StdinPipe()
@@ -159,6 +405,44 @@ func main() {
 			}
 			return p, nil
 		}
+		
+		// 2. 尝试解析为 Alert 并集成 SOP（新增）
+		if sopEnabled == "1" {
+			var alert Alert
+			if err := json.Unmarshal(raw, &alert); err == nil && alert.Service != "" {
+				// 这是一个完整的 Alert，构建包含 SOP 的 prompt
+				
+				// 2.1) 加载 SOP
+				sopText := buildSopContext(alert, sopDir)
+				
+				// 2.2) 规范化 Alert JSON
+				alertMap := make(map[string]any)
+				if err := json.Unmarshal(raw, &alertMap); err == nil {
+					if thStr := jsonRawToString(alert.Threshold); thStr != "" {
+						alertMap["threshold"] = thStr
+					}
+					alertJSON, _ := json.MarshalIndent(alertMap, "", "  ")
+					
+					// 2.3) 组装 prompt
+					var b strings.Builder
+					b.WriteString("You are an AIOps root-cause assistant.\n")
+					b.WriteString("Analyze the alert below and provide actionable remediation steps.\n\n")
+					
+					b.WriteString("## ALERT JSON\n")
+					b.WriteString(string(alertJSON))
+					b.WriteString("\n\n")
+					
+					if sopText != "" {
+						b.WriteString(sopText)
+						b.WriteString("\n")
+					}
+					
+					return b.String(), nil
+				}
+			}
+		}
+		
+		// 3. 回退到简单的 prompt 提取（保留原有逻辑）
 		if m != nil {
 			for _, pth := range []string{"prompt", "inputs.prompt", "data.prompt", "params.prompt"} {
 				if s, ok := digStr(m, pth); ok {
@@ -166,7 +450,7 @@ func main() {
 				}
 			}
 		}
-		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or include prompt)")
+		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or include prompt or provide valid Alert JSON)")
 	}
 
 	// 清洗 ANSI/控制字符，避免 spinner/颜色污染响应
