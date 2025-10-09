@@ -1,0 +1,19 @@
+{
+  "service": "omada",
+  "category": "cpu",
+  "severity": "critical",
+  "region": "us-west-2",
+  "path": "/omada/api-gateway",
+  "metadata": {
+    "expression": "avg(cpu_usage) > 90",
+    "alert_start_time": "2025-10-09T14:00:00Z",
+    "alert_end_time": "2025-10-09T15:00:00Z",
+    "instance_id": "i-1234567890abcdef0"
+  },
+  "threshold": {
+    "value": 90,
+    "unit": "percent",
+    "window": "5m"
+  }
+}
+
