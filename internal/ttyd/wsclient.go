@@ -56,8 +56,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		u.Path = "/ws"
 	}
 
-	h := http.Header{}
-	h.Set("Sec-WebSocket-Protocol", "tty")
+	h := http.Header{} // Do NOT set Sec-WebSocket-Protocol manually; Dialer.Subprotocols adds it.
 	if opt.Username != "" {
 		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(opt.Username+":"+opt.Password)))
 	}
@@ -70,6 +69,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		Subprotocols:     []string{"tty"},
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
+
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {
 		return nil, err
