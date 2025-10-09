@@ -26,15 +26,16 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 	for i := 0; i < size; i++ {
 		go p.fillOne(ctx)
 	}
-	// Optionally wait briefly for at least one session
-	timer := time.NewTimer(2 * time.Second)
+	// Wait for at least one session to be ready
+	timer := time.NewTimer(30 * time.Second) // 增加等待时间到30秒，给Q CLI足够初始化时间
 	select {
 	case s := <-p.slots:
 		timer.Stop()
 		p.slots <- s
+		log.Printf("pool: at least one session ready")
 		return p, nil
 	case <-timer.C:
-		log.Printf("pool: no session ready yet; continuing with lazy fill")
+		log.Printf("pool: no session ready after 30s; continuing with lazy fill")
 		return p, nil
 	}
 }
@@ -69,10 +70,13 @@ func (l *Lease) Release() {
 func (p *Pool) fillOne(ctx context.Context) {
 	backoff := 500 * time.Millisecond
 	for attempt := 1; ; attempt++ {
+		log.Printf("pool: attempting to create session (attempt %d)", attempt)
 		s, err := qflow.New(ctx, p.opts)
 		if err == nil {
+			log.Printf("pool: session created successfully")
 			select {
 			case p.slots <- s:
+				log.Printf("pool: session added to pool")
 				return
 			case <-ctx.Done():
 				return
