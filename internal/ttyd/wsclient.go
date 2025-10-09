@@ -190,12 +190,17 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 
 		// 去掉 ANSI 序列再判定提示符，避免彩色/TUI 干扰
 		cleaned := ansi.ReplaceAllString(buf.String(), "")
-		cleaned = strings.TrimRight(cleaned, " \r\n")
-		if strings.HasSuffix(cleaned, "\n> ") ||
-			strings.HasSuffix(cleaned, "q> ") ||
-			strings.HasSuffix(cleaned, "> ") ||
-			strings.Contains(cleaned, "\nq> ") {
-			log.Printf("ttyd: prompt detected, data length: %d", buf.Len())
+		cleaned = strings.TrimRight(cleaned, " \r\n\t")
+		// 匹配提示符：末尾是 > 或 q>（不要求后面有空格）
+		if strings.HasSuffix(cleaned, ">") &&
+			(strings.HasSuffix(cleaned, "q>") ||
+				strings.HasSuffix(cleaned, "\n>") ||
+				strings.HasSuffix(cleaned, " >")) {
+			start := len(cleaned) - 20
+			if start < 0 {
+				start = 0
+			}
+			log.Printf("ttyd: prompt detected, cleaned tail: %q", cleaned[start:])
 			return buf.String(), nil
 		}
 
