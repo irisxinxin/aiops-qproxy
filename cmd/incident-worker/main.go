@@ -57,9 +57,9 @@ func main() {
 		WSURL:          wsURL,
 		WSUser:         user,
 		WSPass:         pass,
-		IdleTO:         60 * time.Second,
-		Handshake:      10 * time.Second,
-		ConnectTO:      5 * time.Second,
+		IdleTO:         120 * time.Second, // 增加到 120s，给 MCP servers 和 Q CLI 足够时间
+		Handshake:      30 * time.Second,  // 增加握手超时
+		ConnectTO:      10 * time.Second,  // 增加连接超时
 		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
 		NoAuth:         noauth,
 		TokenURL:       tokenURL,
