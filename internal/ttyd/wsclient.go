@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -70,13 +71,17 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
 
+	log.Printf("ttyd: attempting to connect to %s", u.String())
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {
+		log.Printf("ttyd: connection failed: %v", err)
 		return nil, err
 	}
+	log.Printf("ttyd: WebSocket connection established")
 	c := &Client{conn: conn, opt: opt, done: make(chan struct{})}
 
 	// --- Send ttyd hello (JSON_DATA first frame) with AuthToken ---
+	log.Printf("ttyd: preparing hello message...")
 	token, _ := c.fetchToken(ctx)
 	if token == "" {
 		// fallbacks: -c user:pass or -H header value
@@ -98,14 +103,24 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		"rows":      opt.Rows,
 	}
 	b, _ := json.Marshal(hello)
+	log.Printf("ttyd: sending hello message...")
 	// ttyd identifies JSON_DATA by first byte '{' — send binary JSON frame.
 	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
+		log.Printf("ttyd: hello message failed: %v", err)
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
+	log.Printf("ttyd: hello message sent successfully")
 
 	// consume initial banner until prompt to ensure ready
-	_, _ = c.readUntilPrompt(ctx, opt.ReadIdleTO)
+	log.Printf("ttyd: waiting for initial prompt...")
+	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
+	if err != nil {
+		log.Printf("ttyd: failed to read initial prompt: %v", err)
+		// 不返回错误，继续使用连接
+	} else {
+		log.Printf("ttyd: initial prompt received successfully")
+	}
 
 	// keepalive pings
 	if opt.KeepAlive > 0 {
