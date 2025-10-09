@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -150,10 +151,11 @@ func (c *Client) sendCtrlC() error {
 
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
-	deadline := time.Now().Add(idle)
-	_ = c.conn.SetReadDeadline(deadline)
+	hardDeadline := time.Now().Add(idle)
+	_ = c.conn.SetReadDeadline(hardDeadline)
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
+	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 
 	for {
 		// 检查 context 是否被取消
@@ -166,6 +168,15 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
+			// 如果是超时，但 buf 里已有 "> "，说明提示符已到齐，返回成功
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				cleaned := ansi.ReplaceAllString(buf.String(), "")
+				cleaned = strings.TrimRight(cleaned, " \r\n")
+				if strings.HasSuffix(cleaned, "> ") || strings.HasSuffix(cleaned, "q> ") {
+					log.Printf("ttyd: prompt detected on timeout, data length: %d", buf.Len())
+					return buf.String(), nil
+				}
+			}
 			log.Printf("ttyd: read message error: %v", err)
 			return "", err
 		}
@@ -177,20 +188,19 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		log.Printf("ttyd: received data: %q", string(data))
 		buf.Write(data)
 
-		// 检查多种可能的提示符格式
-		dataStr := buf.String()
-		tail := bytes.TrimRight(buf.Bytes(), " \r\n")
-
-		// 更严格的提示符判定，避免在 spinner 阶段过早返回
-		if bytes.HasSuffix(tail, []byte("\n> ")) ||
-			bytes.HasSuffix(tail, []byte("q> ")) ||
-			bytes.HasSuffix(tail, []byte("> ")) ||
-			bytes.Contains(buf.Bytes(), []byte("\nq> ")) {
-			log.Printf("ttyd: prompt detected, data length: %d", len(dataStr))
-			return dataStr, nil
+		// 去掉 ANSI 序列再判定提示符，避免彩色/TUI 干扰
+		cleaned := ansi.ReplaceAllString(buf.String(), "")
+		cleaned = strings.TrimRight(cleaned, " \r\n")
+		if strings.HasSuffix(cleaned, "\n> ") ||
+			strings.HasSuffix(cleaned, "q> ") ||
+			strings.HasSuffix(cleaned, "> ") ||
+			strings.Contains(cleaned, "\nq> ") {
+			log.Printf("ttyd: prompt detected, data length: %d", buf.Len())
+			return buf.String(), nil
 		}
 
-		_ = c.conn.SetReadDeadline(time.Now().Add(idle))
+		// 每次读到数据后，短超时(500ms)等后续片段，避免提示符被拆分
+		_ = c.conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 	}
 }
 
