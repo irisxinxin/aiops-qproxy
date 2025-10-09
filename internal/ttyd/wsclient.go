@@ -133,28 +133,45 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	deadline := time.Now().Add(idle)
 	_ = c.conn.SetReadDeadline(deadline)
 
+	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
+
 	for {
 		// 检查 context 是否被取消
 		select {
 		case <-ctx.Done():
+			log.Printf("ttyd: context cancelled")
 			return "", ctx.Err()
 		default:
 		}
 
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
+			log.Printf("ttyd: read message error: %v", err)
 			return "", err
 		}
 		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
+			log.Printf("ttyd: ignoring message type: %d", typ)
 			continue
 		}
+
+		log.Printf("ttyd: received data: %q", string(data))
 		buf.Write(data)
-		// Be strict: treat "\n>" as prompt only at tail (ignoring whitespace)
+
+		// 检查多种可能的提示符格式
+		dataStr := buf.String()
 		tail := bytes.TrimRight(buf.Bytes(), " \r\n")
-		if bytes.HasSuffix(tail, []byte("\n>")) {
-			out := buf.String()
-			return out, nil
+
+		// 放宽提示符匹配条件
+		if bytes.HasSuffix(tail, []byte("\n>")) ||
+			bytes.HasSuffix(tail, []byte(">")) ||
+			bytes.HasSuffix(tail, []byte("$")) ||
+			bytes.Contains(buf.Bytes(), []byte("q>")) ||
+			bytes.Contains(buf.Bytes(), []byte("Amazon Q")) ||
+			len(dataStr) > 100 { // 如果收到足够多的数据，也认为准备好了
+			log.Printf("ttyd: prompt detected, data length: %d", len(dataStr))
+			return dataStr, nil
 		}
+
 		_ = c.conn.SetReadDeadline(time.Now().Add(idle))
 	}
 }
