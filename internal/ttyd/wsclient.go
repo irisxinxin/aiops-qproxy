@@ -298,17 +298,24 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 }
 
 // readResponse 读取 Q CLI 的响应（发送 prompt 后调用）
-// 与 readUntilPrompt 不同，这里使用简单的固定超时策略
+// 使用智能超时策略：看到提示符后缩短等待时间
 func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
 	msgCount := 0
 	lastDataTime := time.Now()
+	promptSeen := false // 是否已看到提示符 ">"
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
 
 	for {
-		// 设置读取超时：距离上次收到数据的 idle 时间
-		deadline := lastDataTime.Add(idle)
+		// 智能超时策略：
+		// - 看到提示符 ">" 后，用短超时（3秒），因为响应可能已完成
+		// - 否则用长超时（idle），给 Q CLI 足够时间思考
+		timeout := idle
+		if promptSeen {
+			timeout = 3 * time.Second
+		}
+		deadline := lastDataTime.Add(timeout)
 		_ = c.conn.SetReadDeadline(deadline)
 
 		select {
@@ -352,6 +359,13 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 				if len(data) > 1 {
 					actualContent := data[1:]
 					buf.Write(actualContent)
+
+					// 检查是否包含提示符 ">"
+					if strings.Contains(string(actualContent), ">") {
+						promptSeen = true
+						log.Printf("ttyd: prompt detected in response, switching to short timeout")
+					}
+
 					// 记录收到的内容（调试用）
 					preview := string(actualContent)
 					if len(preview) > 100 {
