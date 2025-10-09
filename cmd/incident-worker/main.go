@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"aiops-qproxy/internal/pool"
@@ -16,19 +17,18 @@ import (
 	"aiops-qproxy/internal/store"
 )
 
-func getenv(k, d string) string {
+func getenv(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
 	}
-	return d
+	return def
 }
 
 func main() {
-	ctx := context.Background()
-
-	wsURL := getenv("QPROXY_WS_URL", "http://127.0.0.1:7682/ws")
-	user := getenv("QPROXY_WS_USER", "demo")
-	pass := getenv("QPROXY_WS_PASS", "password123")
+	// 默认裸跑直连 localhost
+	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
+	user := getenv("QPROXY_WS_USER", "")
+	pass := getenv("QPROXY_WS_PASS", "")
 	nStr := getenv("QPROXY_WS_POOL", "3")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
@@ -36,25 +36,29 @@ func main() {
 	authHeaderVal := getenv("QPROXY_WS_AUTH_HEADER_VAL", "")
 	tokenURL := getenv("QPROXY_WS_TOKEN_URL", "")
 	kaStr := getenv("QPROXY_WS_KEEPALIVE_SEC", "25")
-	kaSec, _ := strconv.Atoi(kaStr)
-
-	n, _ := strconv.Atoi(nStr)
-	if n <= 0 {
-		n = 3
+	_, _ = strconv.Atoi(kaStr) // 暂时不使用，保留变量
+	insecure := getenv("QPROXY_WS_INSECURE", "")
+	noauthEnv := strings.ToLower(getenv("QPROXY_WS_NOAUTH", ""))
+	noauth := noauthEnv == "1" || noauthEnv == "true"
+	// 自动推断：既没 basic 也没自定义头 => 无鉴权
+	if !noauth && user == "" && authHeaderName == "" {
+		noauth = true
 	}
 
+	n, _ := strconv.Atoi(nStr)
+	ctx := context.Background()
 	qo := qflow.Opts{
 		WSURL:          wsURL,
 		WSUser:         user,
 		WSPass:         pass,
 		IdleTO:         60 * time.Second,
 		Handshake:      10 * time.Second,
+		ConnectTO:      5 * time.Second,
+		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
+		NoAuth:         noauth,
 		TokenURL:       tokenURL,
 		AuthHeaderName: authHeaderName,
 		AuthHeaderVal:  authHeaderVal,
-		Columns:        120,
-		Rows:           30,
-		KeepAlive:      time.Duration(kaSec) * time.Second,
 	}
 
 	p, err := pool.New(ctx, n, qo)
@@ -71,6 +75,7 @@ func main() {
 		panic(err)
 	}
 	orc := runner.NewOrchestrator(p, sm, cs)
+	log.Printf("incident-worker: ws=%s noauth=%v pool=%d", wsURL, noauth, n)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

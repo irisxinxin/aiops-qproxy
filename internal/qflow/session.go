@@ -15,33 +15,33 @@ type Session struct {
 }
 
 type Opts struct {
-	WSURL     string
-	WSUser    string
-	WSPass    string
-	IdleTO    time.Duration
-	Handshake time.Duration
+	WSURL       string
+	WSUser      string // ignored when NoAuth
+	WSPass      string // ignored when NoAuth
+	IdleTO      time.Duration
+	Handshake   time.Duration
+	InsecureTLS bool
+	ConnectTO   time.Duration
+	NoAuth      bool
 	// auth/hello extras
-	TokenURL       string
-	AuthHeaderName string
-	AuthHeaderVal  string
-	Columns        int
-	Rows           int
-	KeepAlive      time.Duration
+	TokenURL       string // ignored when NoAuth
+	AuthHeaderName string // ignored when NoAuth
+	AuthHeaderVal  string // ignored when NoAuth
 }
 
 func New(ctx context.Context, o Opts) (*Session, error) {
 	cli, err := ttyd.Dial(ctx, ttyd.DialOptions{
 		Endpoint:       o.WSURL,
+		NoAuth:         o.NoAuth,
 		Username:       o.WSUser,
 		Password:       o.WSPass,
 		HandshakeTO:    o.Handshake,
+		ConnectTO:      o.ConnectTO,
 		ReadIdleTO:     o.IdleTO,
+		InsecureTLS:    o.InsecureTLS,
 		TokenURL:       o.TokenURL,
 		AuthHeaderName: o.AuthHeaderName,
 		AuthHeaderVal:  o.AuthHeaderVal,
-		Columns:        o.Columns,
-		Rows:           o.Rows,
-		KeepAlive:      o.KeepAlive,
 	})
 	if err != nil {
 		return nil, err
@@ -75,33 +75,37 @@ func (s *Session) ContextClear() error {
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {
+	return s.AskOnceWithContext(context.Background(), prompt)
+}
+
+func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string, error) {
 	p := strings.TrimSpace(prompt)
 	if p == "" {
 		return "", fmt.Errorf("empty prompt")
 	}
-	out, err := s.cli.Ask(context.Background(), p, s.opts.IdleTO)
+	out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
 	if err == nil {
 		return out, nil
 	}
 	if IsConnError(err) {
 		// try reconnect once
 		_ = s.cli.Close()
-		cli, e2 := ttyd.Dial(context.Background(), ttyd.DialOptions{
+		cli, e2 := ttyd.Dial(ctx, ttyd.DialOptions{
 			Endpoint:       s.opts.WSURL,
+			NoAuth:         s.opts.NoAuth,
 			Username:       s.opts.WSUser,
 			Password:       s.opts.WSPass,
 			HandshakeTO:    s.opts.Handshake,
+			ConnectTO:      s.opts.ConnectTO,
 			ReadIdleTO:     s.opts.IdleTO,
+			InsecureTLS:    s.opts.InsecureTLS,
 			TokenURL:       s.opts.TokenURL,
 			AuthHeaderName: s.opts.AuthHeaderName,
 			AuthHeaderVal:  s.opts.AuthHeaderVal,
-			Columns:        s.opts.Columns,
-			Rows:           s.opts.Rows,
-			KeepAlive:      s.opts.KeepAlive,
 		})
 		if e2 == nil {
 			s.cli = cli
-			return s.cli.Ask(context.Background(), p, s.opts.IdleTO)
+			return s.cli.Ask(ctx, p, s.opts.IdleTO)
 		}
 	}
 	return "", err

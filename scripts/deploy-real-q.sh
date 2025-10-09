@@ -51,9 +51,10 @@ if ! command -v ttyd &> /dev/null; then
 fi
 
 # 设置环境变量
-export QPROXY_WS_URL=http://127.0.0.1:7682/ws
-export QPROXY_WS_USER=demo
-export QPROXY_WS_PASS=password123
+export QPROXY_WS_URL=ws://127.0.0.1:7682/ws
+# 使用 NoAuth 模式，不设置认证信息
+# export QPROXY_WS_USER=demo
+# export QPROXY_WS_PASS=password123
 export QPROXY_WS_POOL=1
 export QPROXY_CONV_ROOT=./conversations
 export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
@@ -81,9 +82,9 @@ else
 fi
 
 
-# 启动真实 ttyd + Q CLI
-echo "🔌 启动真实 ttyd + Q CLI..."
-nohup ttyd -p 7682 -c demo:password123 q chat > ./logs/ttyd-q.log 2>&1 &
+# 启动真实 ttyd + Q CLI (NoAuth 模式)
+echo "🔌 启动真实 ttyd + Q CLI (NoAuth 模式)..."
+nohup ttyd -p 7682 q chat > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
 echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"
@@ -124,12 +125,10 @@ fi
 echo "✅ 编译成功（使用新的超时设置）"
 
 # 启动服务
-echo "▶️  启动 incident-worker 服务..."
+echo "▶️  启动 incident-worker 服务 (NoAuth 模式)..."
 # 设置环境变量并启动服务
 env \
-QPROXY_WS_URL=http://127.0.0.1:7682/ws \
-QPROXY_WS_USER=demo \
-QPROXY_WS_PASS=password123 \
+QPROXY_WS_URL=ws://127.0.0.1:7682/ws \
 QPROXY_WS_POOL=5 \
 QPROXY_CONV_ROOT=./conversations \
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \

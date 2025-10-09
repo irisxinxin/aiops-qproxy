@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,27 +17,40 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type DialOptions struct {
+	Endpoint string
+	// no-auth (bare) mode: do not send Authorization header, do not fetch /token,
+	// and send hello JSON without AuthToken.
+	NoAuth bool
+
+	// optional (kept for backward-compat; ignored when NoAuth==true)
+	Username       string
+	Password       string
+	AuthHeaderName string
+	AuthHeaderVal  string
+	TokenURL       string
+
+	HandshakeTO time.Duration
+	ConnectTO   time.Duration
+	ReadIdleTO  time.Duration
+	KeepAlive   time.Duration
+	InsecureTLS bool
+}
+
 type Client struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
+	url  string
+	// config for reconnects or hello
 	opt  DialOptions
 	done chan struct{}
 }
 
-type DialOptions struct {
-	Endpoint    string
-	Username    string
-	Password    string
-	InsecureTLS bool
-	HandshakeTO time.Duration
-	ReadIdleTO  time.Duration
-	// ttyd auth & hello
-	TokenURL       string // optional override; default: infer from Endpoint -> /token
-	AuthHeaderName string // for -H header auth (reverse proxy mode)
-	AuthHeaderVal  string
-	Columns        int
-	Rows           int
-	KeepAlive      time.Duration // ping interval; 0=disable
+type helloFrame struct {
+	AuthToken string `json:"AuthToken,omitempty"`
+	Columns   int    `json:"columns"`
+	Rows      int    `json:"rows"`
+	// allow future fields
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -47,82 +58,50 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme == "http" {
+	if u.Scheme == "" {
 		u.Scheme = "ws"
-	}
-	if u.Scheme == "https" {
-		u.Scheme = "wss"
 	}
 	if u.Path == "" {
 		u.Path = "/ws"
 	}
 
-	h := http.Header{} // Do NOT set Sec-WebSocket-Protocol manually; Dialer.Subprotocols adds it.
-	if opt.Username != "" {
-		h.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(opt.Username+":"+opt.Password)))
-	}
-	if opt.AuthHeaderName != "" && opt.AuthHeaderVal != "" {
-		h.Set(opt.AuthHeaderName, opt.AuthHeaderVal)
-	}
+	h := http.Header{} // 留空：NoAuth 下不携带任何鉴权头
 
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
 		Subprotocols:     []string{"tty"},
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
 	}
+	if opt.ConnectTO <= 0 {
+		opt.ConnectTO = 5 * time.Second
+	}
+	d.NetDialContext = (&net.Dialer{
+		Timeout:   opt.ConnectTO,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
 
-	log.Printf("ttyd: attempting to connect to %s", u.String())
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {
-		log.Printf("ttyd: connection failed: %v", err)
 		return nil, err
 	}
-	log.Printf("ttyd: WebSocket connection established")
-	c := &Client{conn: conn, opt: opt, done: make(chan struct{})}
+	c := &Client{
+		conn: conn,
+		url:  u.String(),
+		opt:  opt,
+		done: make(chan struct{}),
+	}
 
-	// --- Send ttyd hello (JSON_DATA first frame) with AuthToken ---
-	log.Printf("ttyd: preparing hello message...")
-	token, _ := c.fetchToken(ctx)
-	if token == "" {
-		// fallbacks: -c user:pass or -H header value
-		if opt.Username != "" {
-			token = base64.StdEncoding.EncodeToString([]byte(opt.Username + ":" + opt.Password))
-		} else if opt.AuthHeaderVal != "" {
-			token = opt.AuthHeaderVal
-		}
-	}
-	if opt.Columns <= 0 {
-		opt.Columns = 120
-	}
-	if opt.Rows <= 0 {
-		opt.Rows = 30
-	}
-	hello := map[string]interface{}{
-		"AuthToken": token,
-		"columns":   opt.Columns,
-		"rows":      opt.Rows,
-	}
-	b, _ := json.Marshal(hello)
-	log.Printf("ttyd: sending hello message...")
-	// ttyd identifies JSON_DATA by first byte '{' — send binary JSON frame.
-	if err := conn.WriteMessage(websocket.BinaryMessage, b); err != nil {
-		log.Printf("ttyd: hello message failed: %v", err)
+	// ---- 首帧：只发 columns/rows；NoAuth 下不带 AuthToken ----
+	hello := helloFrame{Columns: 120, Rows: 30}
+	// （如果以后需要支持鉴权模式，这里可以根据 opt.NoAuth=false 去附加 AuthToken）
+	b, _ := json.Marshal(&hello)
+	if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
-	log.Printf("ttyd: hello message sent successfully")
+	// 尝试读到 prompt，读不全也不致命
+	_, _ = c.readUntilPrompt(ctx, opt.ReadIdleTO)
 
-	// consume initial banner until prompt to ensure ready
-	log.Printf("ttyd: waiting for initial prompt...")
-	_, err = c.readUntilPrompt(ctx, opt.ReadIdleTO)
-	if err != nil {
-		log.Printf("ttyd: failed to read initial prompt: %v", err)
-		// 不返回错误，继续使用连接
-	} else {
-		log.Printf("ttyd: initial prompt received successfully")
-	}
-
-	// keepalive pings
 	if opt.KeepAlive > 0 {
 		go c.keepalive()
 	}
@@ -141,6 +120,13 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	_ = c.conn.SetReadDeadline(deadline)
 
 	for {
+		// 检查 context 是否被取消
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+		}
+
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			return "", err
@@ -193,43 +179,4 @@ func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn.Close()
-}
-
-func (c *Client) fetchToken(ctx context.Context) (string, error) {
-	// infer default token URL: ws[s]://host[:port]/ws -> http[s]://host[:port]/token
-	base := c.opt.TokenURL
-	if base == "" {
-		u, err := url.Parse(c.opt.Endpoint)
-		if err != nil {
-			return "", err
-		}
-		if u.Scheme == "wss" {
-			u.Scheme = "https"
-		} else {
-			u.Scheme = "http"
-		}
-		u.Path = "/token"
-		base = u.String()
-	}
-	req, _ := http.NewRequestWithContext(ctx, "GET", base, nil)
-	if c.opt.Username != "" {
-		req.SetBasicAuth(c.opt.Username, c.opt.Password)
-	}
-	if c.opt.AuthHeaderName != "" && c.opt.AuthHeaderVal != "" {
-		req.Header.Set(c.opt.AuthHeaderName, c.opt.AuthHeaderVal)
-	}
-	httpc := &http.Client{Timeout: 5 * time.Second}
-	resp, err := httpc.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	var v struct {
-		Token string `json:"token"`
-	}
-	if json.Unmarshal(body, &v) == nil && v.Token != "" {
-		return v.Token, nil
-	}
-	return "", fmt.Errorf("no token")
 }
