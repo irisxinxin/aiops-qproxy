@@ -303,7 +303,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 	var buf bytes.Buffer
 	msgCount := 0
 	lastDataTime := time.Now()
-	promptCount := 0 // 计数提示符出现次数（第一次是回显，第二次是响应结束）
+	promptCount := 0    // 计数提示符出现次数（第一次是回显，第二次是响应结束）
 	hasContent := false // 是否已收到实际内容（非回显）
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
@@ -367,13 +367,13 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 						promptCount++
 						log.Printf("ttyd: prompt #%d detected in response", promptCount)
 					}
-					
+
 					// 检查是否有实际内容（不只是回显和提示符）
 					// 如果内容长度 > 50 或包含关键词，认为是实际响应
-					if len(content) > 50 || 
-					   strings.Contains(strings.ToLower(content), "hello") ||
-					   strings.Contains(content, "答") ||
-					   strings.Contains(content, "Thinking") {
+					if len(content) > 50 ||
+						strings.Contains(strings.ToLower(content), "hello") ||
+						strings.Contains(content, "答") ||
+						strings.Contains(content, "Thinking") {
 						hasContent = true
 					}
 

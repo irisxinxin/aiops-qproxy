@@ -172,7 +172,7 @@ func main() {
 	// 清洗 ANSI/控制字符，避免 spinner/颜色污染响应
 	csi := regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 	osc := regexp.MustCompile(`\x1b\][^\a]*\x07`)
-	ctrl := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`) // 保留\t\n\r
+	ctrl := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`)     // 保留\t\n\r
 	spinner := regexp.MustCompile(`[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Thinking\.\.\.`) // 清除 spinner 动画
 	cleanText := func(s string) string {
 		s = csi.ReplaceAllString(s, "")
