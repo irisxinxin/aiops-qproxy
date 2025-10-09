@@ -151,6 +151,15 @@ func (c *Client) sendCtrlC() error {
 	return c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03})
 }
 
+// 发送 Ctrl-D (EOF) - 告诉 Q CLI 输入结束
+func (c *Client) sendCtrlD() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// ttyd 1.7.4 协议：Ctrl-D 也需要 INPUT 类型前缀
+	// 格式: "0" + 0x04
+	return c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x04})
+}
+
 // 全局编译正则表达式，避免重复编译
 var (
 	ansiRegex = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
@@ -355,6 +364,13 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	if err := c.SendLine(prompt); err != nil {
 		return "", err
 	}
+
+	// 发送 Ctrl+D (EOF) 告诉 Q CLI 输入结束，开始处理
+	log.Printf("ttyd: sending Ctrl+D to signal EOF")
+	if err := c.sendCtrlD(); err != nil {
+		return "", err
+	}
+
 	// 发送 prompt 后，使用 readResponse 而不是 readUntilPrompt
 	// 因为 Q CLI 在处理时不会发送中间数据，不需要智能超时
 	return c.readResponse(ctx, idle)
