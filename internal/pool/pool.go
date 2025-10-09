@@ -5,15 +5,17 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"aiops-qproxy/internal/qflow"
 )
 
 type Pool struct {
-	size  int
-	slots chan *qflow.Session
-	opts  qflow.Opts
+	size           int
+	slots          chan *qflow.Session
+	opts           qflow.Opts
+	fillingWorkers int32 // 正在后台填充的 goroutine 数量（原子操作）
 }
 
 func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
@@ -67,7 +69,17 @@ func (l *Lease) Release() {
 	if l.broken {
 		// Replace it in background
 		_ = l.s.Close()
-		go l.p.fillOne(context.Background())
+		// 限制并发 fillOne goroutine 数量，避免泄漏
+		current := atomic.LoadInt32(&l.p.fillingWorkers)
+		if current < int32(l.p.size) { // 最多同时有 size 个 goroutine 在填充
+			atomic.AddInt32(&l.p.fillingWorkers, 1)
+			go func() {
+				defer atomic.AddInt32(&l.p.fillingWorkers, -1)
+				l.p.fillOne(context.Background())
+			}()
+		} else {
+			log.Printf("pool: skipping fillOne, already %d workers running", current)
+		}
 		return
 	}
 	l.p.slots <- l.s

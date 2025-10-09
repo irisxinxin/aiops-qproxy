@@ -161,12 +161,13 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
 	ansi := regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+	msgCount := 0
 
 	for {
 		// 检查 context 是否被取消
 		select {
 		case <-ctx.Done():
-			log.Printf("ttyd: context cancelled")
+			log.Printf("ttyd: context cancelled after %d messages", msgCount)
 			return "", ctx.Err()
 		default:
 		}
@@ -175,44 +176,44 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		if err != nil {
 			// 如果是超时，但 buf 里已有提示符，说明已到齐，返回成功
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				cleaned := ansi.ReplaceAllString(buf.String(), "")
+				// 只检查末尾 500 字节，避免对超大 buf 做全量正则替换
+				tail := buf.Bytes()
+				if len(tail) > 500 {
+					tail = tail[len(tail)-500:]
+				}
+				cleaned := ansi.ReplaceAllString(string(tail), "")
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
 				// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 					// 检查 > 前一个字符（如果有）不是字母数字
 					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-						tailLen := 30
-						if len(cleaned) < tailLen {
-							tailLen = len(cleaned)
-						}
-						log.Printf("ttyd: prompt detected on timeout, cleaned tail: %q", cleaned[len(cleaned)-tailLen:])
+						log.Printf("ttyd: prompt detected on timeout after %d messages, buf size: %d", msgCount, buf.Len())
 						return buf.String(), nil
 					}
 				}
 			}
-			log.Printf("ttyd: read message error: %v", err)
+			log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
 			return "", err
 		}
 		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
-			log.Printf("ttyd: ignoring message type: %d", typ)
 			continue
 		}
 
-		log.Printf("ttyd: received data: %q", string(data))
 		buf.Write(data)
+		msgCount++
 
-		// 去掉 ANSI 序列再判定提示符，避免彩色/TUI 干扰
-		cleaned := ansi.ReplaceAllString(buf.String(), "")
+		// 只检查最后 500 字节，避免对超大 buf 做全量正则替换（性能优化）
+		tail := buf.Bytes()
+		if len(tail) > 500 {
+			tail = tail[len(tail)-500:]
+		}
+		cleaned := ansi.ReplaceAllString(string(tail), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
 		// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 			// 检查 > 前一个字符（如果有）不是字母数字
 			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-				start := len(cleaned) - 30
-				if start < 0 {
-					start = 0
-				}
-				log.Printf("ttyd: prompt detected, cleaned tail: %q", cleaned[start:])
+				log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len())
 				return buf.String(), nil
 			}
 		}
