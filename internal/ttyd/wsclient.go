@@ -35,8 +35,8 @@ type DialOptions struct {
 	HandshakeTO time.Duration
 	ConnectTO   time.Duration
 	ReadIdleTO  time.Duration
-    // KeepAlive 已废弃（ttyd 本地稳定连接无需 keepalive）
-    KeepAlive   time.Duration
+	// KeepAlive 已废弃（ttyd 本地稳定连接无需 keepalive）
+	KeepAlive   time.Duration
 	InsecureTLS bool
 	// 唤醒 Q 的方式：ctrlc（默认）/ newline / none
 	WakeMode string
@@ -47,9 +47,9 @@ type Client struct {
 	mu   sync.Mutex
 	url  string
 	// config for reconnects or hello
-	opt            DialOptions
-	done           chan struct{}
-	readIdle       time.Duration
+	opt      DialOptions
+	done     chan struct{}
+	readIdle time.Duration
 }
 
 type helloFrame struct {
@@ -93,13 +93,18 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, err
 	}
 	log.Printf("ttyd: WebSocket connection established")
-    c := &Client{
-        conn:     conn,
-        url:      u.String(),
-        opt:      opt,
-        done:     make(chan struct{}),
-        readIdle: opt.ReadIdleTO,
-    }
+    // 记录对端关闭事件，便于定位是谁主动断开
+    conn.SetCloseHandler(func(code int, text string) error {
+        log.Printf("ttyd: close from peer (code=%d, text=%q)", code, text)
+        return nil
+    })
+	c := &Client{
+		conn:     conn,
+		url:      u.String(),
+		opt:      opt,
+		done:     make(chan struct{}),
+		readIdle: opt.ReadIdleTO,
+	}
 	// 读限制，但不设置初始 ReadDeadline（会在 readUntilPrompt 后设置为 24h）
 	c.conn.SetReadLimit(16 << 20)
 	// 移除 PongHandler 和初始 ReadDeadline，避免与后续的 24h 设置冲突
@@ -157,8 +162,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 不设置 ReadDeadline！让连接永远不会因为超时而断开
 	log.Printf("ttyd: connection established, NO ReadDeadline set (永不超时)")
 
-    // 不启动 keepalive（本地 ttyd 稳定，无需心跳）
-    log.Printf("ttyd: keepalive disabled by design")
+	// 不启动 keepalive（本地 ttyd 稳定，无需心跳）
+	log.Printf("ttyd: keepalive disabled by design")
 	return c, nil
 }
 
@@ -215,7 +220,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		default:
 		}
 
-		typ, data, err := c.conn.ReadMessage()
+        typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			// 如果是超时，但 buf 里已有提示符，说明已到齐，返回成功
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -235,7 +240,12 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 					}
 				}
 			}
-			log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
+            // 判断是否是对端关闭
+            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("ttyd: peer closed connection while waiting initial prompt: %v", err)
+            } else {
+                log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
+            }
 			return "", err
 		}
 		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
@@ -300,7 +310,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 		default:
 		}
 
-		typ, data, err := c.conn.ReadMessage()
+        typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			// 超时检查：如果 buf 里已有提示符，说明响应完成
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -318,7 +328,11 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					}
 				}
 			}
-			log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("ttyd: peer closed connection during response read: %v", err)
+            } else {
+                log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+            }
 			return "", err
 		}
 
@@ -386,7 +400,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	default:
 	}
 
-    // 无 keepalive，无需暂停/恢复
+	// 无 keepalive，无需暂停/恢复
 
 	// 记录发送的 prompt（截断过长的内容）
 	promptPreview := prompt
@@ -413,6 +427,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+    log.Printf("ttyd: client.Close() called by local code, closing websocket")
 	return c.conn.Close()
 }
 
