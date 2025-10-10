@@ -20,14 +20,14 @@ import (
 )
 
 type DialOptions struct {
-	Endpoint    string
-	NoAuth      bool
-	Username    string
-	Password    string
+	Endpoint       string
+	NoAuth         bool
+	Username       string
+	Password       string
 	AuthHeaderName string
 	AuthHeaderVal  string
-	TokenURL    string
-	HandshakeTO time.Duration
+	TokenURL       string
+	HandshakeTO    time.Duration
 	// 新增：首次连接后等待 Q 出现提示符的最大时长（覆盖 MCP 启动慢）
 	InitWait    time.Duration
 	ConnectTO   time.Duration
@@ -35,13 +35,13 @@ type DialOptions struct {
 	KeepAlive   time.Duration
 	InsecureTLS bool
 	// ctrlc/newline/none；建议 newline，避免 ^C 杀掉 q
-	WakeMode    string
+	WakeMode string
 }
 
 type Client struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
-	url  string
+	conn          *websocket.Conn
+	mu            sync.Mutex
+	url           string
 	keepaliveQuit chan struct{}
 	pingTicker    *time.Ticker
 	readIdle      time.Duration
@@ -56,28 +56,43 @@ type helloFrame struct {
 // —— 工具：去 ANSI；宽松提示符 "行尾 > 空格" —— //
 var reANSI = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 var rePrompt = regexp.MustCompile(`(?m)>\s$`)
+
 func stripANSI(b []byte) []byte { return reANSI.ReplaceAll(b, nil) }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	u, err := url.Parse(opt.Endpoint)
-	if err != nil { return nil, err }
-	if u.Scheme == "" { u.Scheme = "ws" }
-	if u.Path == "" { u.Path = "/ws" }
+	if err != nil {
+		return nil, err
+	}
+	if u.Scheme == "" {
+		u.Scheme = "ws"
+	}
+	if u.Path == "" {
+		u.Path = "/ws"
+	}
 
 	h := http.Header{} // 裸跑：不带鉴权头
-	if opt.ConnectTO <= 0 { opt.ConnectTO = 5 * time.Second }
+	if opt.ConnectTO <= 0 {
+		opt.ConnectTO = 5 * time.Second
+	}
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
 		Subprotocols:     []string{"tty"},
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
-		NetDialContext: (&net.Dialer{ Timeout: opt.ConnectTO, KeepAlive: 30 * time.Second }).DialContext,
+		NetDialContext:   (&net.Dialer{Timeout: opt.ConnectTO, KeepAlive: 30 * time.Second}).DialContext,
 	}
 	conn, _, err := d.DialContext(ctx, u.String(), h)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	c := &Client{conn: conn, url: u.String(), keepaliveQuit: make(chan struct{}), readIdle: opt.ReadIdleTO}
 	c.conn.SetReadLimit(16 << 20)
-	if opt.ReadIdleTO <= 0 { opt.ReadIdleTO = 60 * time.Second }
-	if opt.InitWait   <= 0 { opt.InitWait   = 75 * time.Second } // 关键：把初始化等待拉长
+	if opt.ReadIdleTO <= 0 {
+		opt.ReadIdleTO = 60 * time.Second
+	}
+	if opt.InitWait <= 0 {
+		opt.InitWait = 75 * time.Second
+	} // 关键：把初始化等待拉长
 	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
 	c.conn.SetPongHandler(func(string) error {
 		return c.conn.SetReadDeadline(time.Now().Add(c.readIdle))
@@ -134,6 +149,12 @@ func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte,
 	var buf bytes.Buffer
 	sawPrompt := false
 	for {
+		// 支持外部取消
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		mt, p, err := c.conn.ReadMessage()
 		if err != nil {
 			// 如果已经见到提示符，EOF/超时都当作成功收尾返回已收集内容
@@ -148,10 +169,14 @@ func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte,
 			}
 			return nil, err
 		}
-		if mt != websocket.TextMessage || len(p) == 0 { continue }
+		if mt != websocket.TextMessage || len(p) == 0 {
+			continue
+		}
 		op := p[0]
 		data := p[1:]
-		if op != '0' { continue } // 只关心 OUTPUT
+		if op != '0' {
+			continue
+		} // 只关心 OUTPUT
 		clean := stripANSI(data)
 		buf.Write(clean)
 		// 宽松判定：行尾出现 "> "
@@ -160,7 +185,9 @@ func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte,
 			_ = c.conn.SetReadDeadline(time.Now().Add(1200 * time.Millisecond))
 		}
 		if time.Now().After(hard) {
-			if sawPrompt { return buf.Bytes(), nil }
+			if sawPrompt {
+				return buf.Bytes(), nil
+			}
 			return nil, context.DeadlineExceeded
 		}
 	}

@@ -423,11 +423,11 @@ func main() {
 		WSURL:          wsURL,
 		WSUser:         user,
 		WSPass:         pass,
-		IdleTO:         60 * time.Second,                          // 正常读超时 60s
-		Handshake:      10 * time.Second,                          // 握手超时
-		InitWait:       time.Duration(initSec) * time.Second,      // 初始化等待 75s（给 MCP 足够时间）
-		ConnectTO:      5 * time.Second,                           // 连接超时
-		KeepAlive:      5 * time.Second,                           // 每 5 秒 Ping，防止 ttyd 超时
+		IdleTO:         60 * time.Second,                     // 正常读超时 60s
+		Handshake:      10 * time.Second,                     // 握手超时
+		InitWait:       time.Duration(initSec) * time.Second, // 初始化等待 75s（给 MCP 足够时间）
+		ConnectTO:      5 * time.Second,                      // 连接超时
+		KeepAlive:      5 * time.Second,                      // 每 5 秒 Ping，防止 ttyd 超时
 		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
 		NoAuth:         noauth,
 		WakeMode:       wake,
