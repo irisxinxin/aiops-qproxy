@@ -452,6 +452,8 @@ func main() {
 		TokenURL:       tokenURL,
 		AuthHeaderName: authHeaderName,
 		AuthHeaderVal:  authHeaderVal,
+		ExecMode:       strings.ToLower(getenv("QPROXY_MODE", "")) == "exec-pool",
+		QBin:           getenv("Q_BIN", "q"),
 	}
 
 	p, err := pool.New(ctx, n, qo)

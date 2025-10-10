@@ -7,11 +7,19 @@ import (
 	"strings"
 	"time"
 
+	execchat "aiops-qproxy/internal/execchat"
 	"aiops-qproxy/internal/ttyd"
 )
 
+// ChatClient is a minimal client abstraction for chat backends.
+type ChatClient interface {
+	Ask(ctx context.Context, prompt string, idle time.Duration) (string, error)
+	Close() error
+	Ping(ctx context.Context) error
+}
+
 type Session struct {
-	cli  *ttyd.Client
+	cli  ChatClient
 	opts Opts
 }
 
@@ -26,6 +34,9 @@ type Opts struct {
 	KeepAlive   time.Duration // WebSocket ping 间隔，防止空闲连接被关闭
 	NoAuth      bool
 	WakeMode    string // 唤醒 Q CLI 的方式: ctrlc/newline/none
+	// Exec mode (exec-pool) options
+	ExecMode bool
+	QBin     string
 	// auth/hello extras
 	TokenURL       string // ignored when NoAuth
 	AuthHeaderName string // ignored when NoAuth
@@ -33,6 +44,16 @@ type Opts struct {
 }
 
 func New(ctx context.Context, o Opts) (*Session, error) {
+	if o.ExecMode {
+		cli2, err := execchat.Dial(ctx, execchat.DialOptions{
+			QBin:     o.QBin,
+			WakeMode: o.WakeMode,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &Session{cli: cli2, opts: o}, nil
+	}
 	cli, err := ttyd.Dial(ctx, ttyd.DialOptions{
 		Endpoint:       o.WSURL,
 		NoAuth:         o.NoAuth,

@@ -239,7 +239,7 @@ func (c *Client) sendCtrlD() error {
 
 // 全局编译正则表达式，避免重复编译
 var (
-    ansiRegex = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+	ansiRegex = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 )
 
 // isAlnum 检查字符是否为字母或数字
@@ -250,52 +250,52 @@ func isAlnum(b byte) bool {
 // hasPromptFast 检查尾部数据是否存在提示符 '>'（忽略 ANSI 序列），且前一位不是字母数字。
 // 仅扫描最后 500 字节，避免重型正则与大内存拷贝。
 func hasPromptFast(buf *bytes.Buffer) bool {
-    tail := buf.Bytes()
-    if len(tail) > 500 {
-        tail = tail[len(tail)-500:]
-    }
-    // 过滤 ANSI ESC 序列: \x1b '[' ... [A-Za-z]
-    filtered := make([]byte, 0, len(tail))
-    for i := 0; i < len(tail); i++ {
-        if tail[i] == 0x1b && i+1 < len(tail) && tail[i+1] == '[' {
-            // 跳过直到尾部的字母结束符
-            j := i + 2
-            for j < len(tail) {
-                c := tail[j]
-                if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
-                    j++
-                    break
-                }
-                j++
-            }
-            i = j - 1
-            continue
-        }
-        filtered = append(filtered, tail[i])
-    }
-    // Trim 右侧空白
-    k := len(filtered)
-    for k > 0 {
-        c := filtered[k-1]
-        if c == ' ' || c == '\r' || c == '\n' || c == '\t' {
-            k--
-            continue
-        }
-        break
-    }
-    if k == 0 {
-        return false
-    }
-    // 最后一个非空白是否为 '>'
-    if filtered[k-1] != '>' {
-        return false
-    }
-    // 检查前一个字符不是字母数字
-    if k-1 == 0 {
-        return true
-    }
-    prev := filtered[k-2]
-    return !isAlnum(prev)
+	tail := buf.Bytes()
+	if len(tail) > 500 {
+		tail = tail[len(tail)-500:]
+	}
+	// 过滤 ANSI ESC 序列: \x1b '[' ... [A-Za-z]
+	filtered := make([]byte, 0, len(tail))
+	for i := 0; i < len(tail); i++ {
+		if tail[i] == 0x1b && i+1 < len(tail) && tail[i+1] == '[' {
+			// 跳过直到尾部的字母结束符
+			j := i + 2
+			for j < len(tail) {
+				c := tail[j]
+				if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+					j++
+					break
+				}
+				j++
+			}
+			i = j - 1
+			continue
+		}
+		filtered = append(filtered, tail[i])
+	}
+	// Trim 右侧空白
+	k := len(filtered)
+	for k > 0 {
+		c := filtered[k-1]
+		if c == ' ' || c == '\r' || c == '\n' || c == '\t' {
+			k--
+			continue
+		}
+		break
+	}
+	if k == 0 {
+		return false
+	}
+	// 最后一个非空白是否为 '>'
+	if filtered[k-1] != '>' {
+		return false
+	}
+	// 检查前一个字符不是字母数字
+	if k-1 == 0 {
+		return true
+	}
+	prev := filtered[k-2]
+	return !isAlnum(prev)
 }
 
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
@@ -373,13 +373,13 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			}
 		}
 
-        // 快速检测提示符（低开销）
-        if hasPromptFast(&buf) {
-            if ttydDebugEnabled() {
-                log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len())
-            }
-            return buf.String(), nil
-        }
+		// 快速检测提示符（低开销）
+		if hasPromptFast(&buf) {
+			if ttydDebugEnabled() {
+				log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len())
+			}
+			return buf.String(), nil
+		}
 
 		// 不再在循环中动态设置 ReadDeadline，只依赖初始的 hardDeadline
 		// 这样避免短超时累积导致连接在返回前被关闭
@@ -453,13 +453,13 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 			}
 		}
 
-        // 快速检测提示符（低开销）
-        if hasPromptFast(&buf) {
-            if ttydDebugEnabled() {
-                log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
-            }
-            return buf.String(), nil
-        }
+		// 快速检测提示符（低开销）
+		if hasPromptFast(&buf) {
+			if ttydDebugEnabled() {
+				log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+			}
+			return buf.String(), nil
+		}
 	}
 }
 

@@ -46,7 +46,9 @@ if ! command -v ttyd &> /dev/null; then
     exit 1
 fi
 
-# 设置环境变量
+# 设置环境变量（默认切换为 exec-pool，绕过 ttyd）
+export QPROXY_MODE=exec-pool
+export Q_BIN=q
 export QPROXY_WS_URL=ws://127.0.0.1:7682/ws
 # 使用 NoAuth 模式，不设置认证信息
 # export QPROXY_WS_USER=demo
@@ -79,25 +81,29 @@ fi
 
 
 # 启动真实 ttyd + Q CLI (NoAuth 模式)
-echo "🔌 启动真实 ttyd + Q CLI (NoAuth 模式)..."
-# 关闭颜色/动效并开启 Q 自动信任，避免 TUI 控制序列
-# 注意：env 变量要在 ttyd 前设置，避免被当作命令回显
-# -t timeout=0: 禁用客户端 idle timeout，避免 ttyd 自动断开连接
-nohup env TERM=dumb NO_COLOR=1 CLICOLOR=0 \
-  Q_MCP_AUTO_TRUST=true Q_MCP_SKIP_TRUST_PROMPTS=true Q_TOOLS_AUTO_TRUST=true \
-  ttyd -W -t timeout=0 -p 7682 q chat --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
-TTYD_PID=$!
-echo $TTYD_PID > ./logs/ttyd-q.pid
-echo "ttyd PID: $TTYD_PID"
+if [ "$QPROXY_MODE" = "exec-pool" ]; then
+  echo "🔌 跳过 ttyd（exec-pool 模式）"
+else
+  echo "🔌 启动真实 ttyd + Q CLI (NoAuth 模式)..."
+  # 关闭颜色/动效并开启 Q 自动信任，避免 TUI 控制序列
+  # 注意：env 变量要在 ttyd 前设置，避免被当作命令回显
+  # -t timeout=0: 禁用客户端 idle timeout，避免 ttyd 自动断开连接
+  nohup env TERM=dumb NO_COLOR=1 CLICOLOR=0 \
+    Q_MCP_AUTO_TRUST=true Q_MCP_SKIP_TRUST_PROMPTS=true Q_TOOLS_AUTO_TRUST=true \
+    ttyd -W -t timeout=0 -p 7682 q chat --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
+  TTYD_PID=$!
+  echo $TTYD_PID > ./logs/ttyd-q.pid
+  echo "ttyd PID: $TTYD_PID"
 
-# 等待 ttyd 启动并检查
-sleep 3
-if ! ss -tlnp | grep -q ":7682 "; then
-    echo "❌ ttyd 启动失败"
-    cat ./logs/ttyd-q.log
-    exit 1
+  # 等待 ttyd 启动并检查
+  sleep 3
+  if ! ss -tlnp | grep -q ":7682 "; then
+      echo "❌ ttyd 启动失败"
+      cat ./logs/ttyd-q.log
+      exit 1
+  fi
+  echo "✅ ttyd 启动成功"
 fi
-echo "✅ ttyd 启动成功"
 
 # 启动 incident-worker
 echo "🚀 启动 incident-worker..."
@@ -143,6 +149,8 @@ QPROXY_PPROF=1 \
 QPROXY_Q_WAKE=newline \
 QPROXY_SOP_DIR=./ctx/sop \
 QPROXY_SOP_ENABLED=1 \
+QPROXY_MODE=$QPROXY_MODE \
+Q_BIN=$Q_BIN \
 nohup ./bin/incident-worker > ./logs/incident-worker-real.log 2>&1 &
 WORKER_PID=$!
 echo $WORKER_PID > ./logs/incident-worker-real.pid
@@ -201,7 +209,9 @@ echo "    -H 'content-type: application/json' \\"
 echo "    -d '{\"incident_key\":\"test-real-q\",\"prompt\":\"Hello Q CLI!\"}'"
 echo ""
 echo "📝 日志文件："
-echo "  - ttyd: ./logs/ttyd-q.log"
+if [ "$QPROXY_MODE" != "exec-pool" ]; then
+  echo "  - ttyd: ./logs/ttyd-q.log"
+fi
 echo "  - incident-worker: ./logs/incident-worker-real.log"
 echo ""
 echo "🛑 停止服务："
