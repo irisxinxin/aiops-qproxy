@@ -26,15 +26,15 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 		opts:  o,
 	}
 
-    // 预创建：启动后尽快填满池，减少首次请求的拨号和预热时延
-    go func() {
-        for i := 0; i < size; i++ {
-            if i > 0 {
-                time.Sleep(time.Duration(i) * time.Second)
-            }
-            p.fillOne(context.Background())
-        }
-    }()
+	// 预创建：启动后尽快填满池，减少首次请求的拨号和预热时延
+	go func() {
+		for i := 0; i < size; i++ {
+			if i > 0 {
+				time.Sleep(time.Duration(i) * time.Second)
+			}
+			p.fillOne(context.Background())
+		}
+	}()
 
 	return p, nil
 }
@@ -48,35 +48,35 @@ type Lease struct {
 }
 
 func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
-    // 最多尝试两次，避免拿到已被对端回收的旧连接
-    for attempt := 0; attempt < 2; attempt++ {
-        select {
-        case s := <-p.slots:
-            // 轻量健康校验：短超时 Ping（只在取用时做一次，避免后台 keepalive）
-            hcCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
-            healthy := s.Healthy(hcCtx)
-            cancel()
-            if healthy {
-                return &Lease{p: p, s: s, t0: time.Now()}, nil
-            }
-            // 不健康：关闭并同步创建一个替代
-            _ = s.Close()
-            ns, err := qflow.New(ctx, p.opts)
-            if err == nil {
-                return &Lease{p: p, s: ns, t0: time.Now()}, nil
-            }
-            // 创建失败则继续下一轮（或落入下面的拨号）
-        default:
-            // 没有可用连接：同步拨号
-            ns, err := qflow.New(ctx, p.opts)
-            if err != nil {
-                return nil, err
-            }
-            return &Lease{p: p, s: ns, t0: time.Now()}, nil
-        }
-    }
-    // 理论上不会到这里
-    return nil, context.DeadlineExceeded
+	// 最多尝试两次，避免拿到已被对端回收的旧连接
+	for attempt := 0; attempt < 2; attempt++ {
+		select {
+		case s := <-p.slots:
+			// 轻量健康校验：短超时 Ping（只在取用时做一次，避免后台 keepalive）
+			hcCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			healthy := s.Healthy(hcCtx)
+			cancel()
+			if healthy {
+				return &Lease{p: p, s: s, t0: time.Now()}, nil
+			}
+			// 不健康：关闭并同步创建一个替代
+			_ = s.Close()
+			ns, err := qflow.New(ctx, p.opts)
+			if err == nil {
+				return &Lease{p: p, s: ns, t0: time.Now()}, nil
+			}
+			// 创建失败则继续下一轮（或落入下面的拨号）
+		default:
+			// 没有可用连接：同步拨号
+			ns, err := qflow.New(ctx, p.opts)
+			if err != nil {
+				return nil, err
+			}
+			return &Lease{p: p, s: ns, t0: time.Now()}, nil
+		}
+	}
+	// 理论上不会到这里
+	return nil, context.DeadlineExceeded
 }
 func (l *Lease) Session() *qflow.Session { return l.s }
 func (l *Lease) MarkBroken()             { l.broken = true }
