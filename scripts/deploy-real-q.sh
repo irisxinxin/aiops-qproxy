@@ -51,7 +51,7 @@ export QPROXY_WS_URL=ws://127.0.0.1:7682/ws
 # 使用 NoAuth 模式，不设置认证信息
 # export QPROXY_WS_USER=demo
 # export QPROXY_WS_PASS=password123
-export QPROXY_WS_POOL=3
+export QPROXY_WS_POOL=1
 export QPROXY_CONV_ROOT=./conversations
 export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080
@@ -131,7 +131,7 @@ echo "▶️  启动 incident-worker 服务 (NoAuth 模式)..."
 env \
 QPROXY_WS_URL=ws://127.0.0.1:7682/ws \
 QPROXY_WS_NOAUTH=1 \
-QPROXY_WS_POOL=3 \
+QPROXY_WS_POOL=1 \
 QPROXY_CONV_ROOT=./conversations \
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json \
 QPROXY_HTTP_ADDR=:8080 \

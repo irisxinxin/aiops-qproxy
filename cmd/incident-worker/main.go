@@ -424,7 +424,7 @@ func main() {
 		IdleTO:         120 * time.Second, // 增加到 120s，给 MCP servers 和 Q CLI 足够时间
 		Handshake:      30 * time.Second,  // 增加握手超时
 		ConnectTO:      10 * time.Second,  // 增加连接超时
-		KeepAlive:      5 * time.Second,   // 每 5 秒 Ping，防止 ttyd 超时
+		KeepAlive:      10 * time.Second,  // 每 10 秒 Ping，防止 ttyd 超时（降低 CPU 使用）
 		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
 		NoAuth:         noauth,
 		WakeMode:       wake,
