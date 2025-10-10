@@ -208,6 +208,7 @@ func isAlnum(b byte) bool {
 
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
+	// 设置硬截止时间用于超时检查（但只在初始化时调用，所以这里需要设置）
 	hardDeadline := time.Now().Add(idle)
 	_ = c.conn.SetReadDeadline(hardDeadline)
 
@@ -300,13 +301,12 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
 
-	// 设置硬截止时间，避免在循环中动态设置短超时导致累积关闭
-	hardDeadline := time.Now().Add(idle)
-	_ = c.conn.SetReadDeadline(hardDeadline)
+	// 关键修复：不设置 ReadDeadline！
+	// 保持之前的 24h deadline，避免在发送 prompt 后立即触发短超时
+	// 如果真的需要超时，context 会处理
 
 	for {
-		// 移除了动态 SetReadDeadline，只依赖初始的 hardDeadline
-		// 如果看到提示符，直接返回，不需要短超时
+		// 完全不设置 ReadDeadline，让之前的 24h 保持有效
 
 		select {
 		case <-ctx.Done():
