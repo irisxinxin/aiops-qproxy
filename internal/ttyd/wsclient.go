@@ -307,12 +307,6 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 	_ = c.conn.SetReadDeadline(hardDeadline)
 
 	for {
-		// 智能超时：如果已经看到 2 个提示符，用短超时（5秒）
-		// 否则保持长超时，给 Q CLI 足够时间思考
-		if promptCount >= 2 {
-			_ = c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-		}
-
 		select {
 		case <-ctx.Done():
 			log.Printf("ttyd: context cancelled after %d messages", msgCount)
@@ -332,7 +326,8 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-						log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+						log.Printf("ttyd: timeout but response looks complete (prompts:%d, msgs:%d, size:%d)", 
+							promptCount, msgCount, buf.Len())
 						return buf.String(), nil
 					}
 				}
