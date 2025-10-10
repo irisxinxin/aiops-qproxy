@@ -16,6 +16,7 @@ type Pool struct {
 	slots          chan *qflow.Session
 	opts           qflow.Opts
 	fillingWorkers int32 // 正在后台填充的 goroutine 数量（原子操作）
+	failedAttempts int32 // 连续失败次数（原子操作），用于避免无限重试
 }
 
 func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
@@ -79,13 +80,22 @@ func (l *Lease) Release() {
 }
 
 func (p *Pool) fillOne(ctx context.Context) {
+	// 检查连续失败次数，避免无限重试
+	failed := atomic.LoadInt32(&p.failedAttempts)
+	if failed > 20 {
+		log.Printf("pool: too many consecutive failures (%d), refusing to retry (check if ttyd is running)", failed)
+		return
+	}
+
 	backoff := 500 * time.Millisecond
 	maxAttempts := 10 // 最大重试次数
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("pool: attempting to create session (attempt %d/%d)", attempt, maxAttempts)
+		log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
 		s, err := qflow.New(ctx, p.opts)
 		if err == nil {
 			log.Printf("pool: session created successfully")
+			// 重置失败计数
+			atomic.StoreInt32(&p.failedAttempts, 0)
 			select {
 			case p.slots <- s:
 				log.Printf("pool: session added to pool")
@@ -94,6 +104,10 @@ func (p *Pool) fillOne(ctx context.Context) {
 				return
 			}
 		}
+		
+		// 增加失败计数
+		atomic.AddInt32(&p.failedAttempts, 1)
+		
 		sleep := withJitter(backoff)
 		if backoff < 8*time.Second {
 			backoff = time.Duration(math.Min(float64(backoff*2), float64(8*time.Second)))
@@ -101,7 +115,7 @@ func (p *Pool) fillOne(ctx context.Context) {
 		log.Printf("pool: dial failed (attempt %d/%d): %v; retry in %v", attempt, maxAttempts, err, sleep)
 
 		if attempt == maxAttempts {
-			log.Printf("pool: max attempts reached, giving up")
+			log.Printf("pool: max attempts reached, giving up (total_failures=%d)", atomic.LoadInt32(&p.failedAttempts))
 			return
 		}
 
