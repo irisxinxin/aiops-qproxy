@@ -302,12 +302,16 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
 
-	// 关键修复：不设置 ReadDeadline！
-	// 保持之前的 24h deadline，避免在发送 prompt 后立即触发短超时
-	// 如果真的需要超时，context 会处理
+	// 设置初始硬截止时间
+	hardDeadline := time.Now().Add(idle)
+	_ = c.conn.SetReadDeadline(hardDeadline)
 
 	for {
-		// 完全不设置 ReadDeadline，让之前的 24h 保持有效
+		// 智能超时：如果已经看到 2 个提示符，用短超时（5秒）
+		// 否则保持长超时，给 Q CLI 足够时间思考
+		if promptCount >= 2 {
+			_ = c.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		}
 
 		select {
 		case <-ctx.Done():
