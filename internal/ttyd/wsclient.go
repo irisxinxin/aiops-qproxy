@@ -49,8 +49,8 @@ type Client struct {
 	opt            DialOptions
 	done           chan struct{}
 	keepaliveQuit  chan struct{}
-	keepalivePause chan bool       // true=pause, false=resume
-	keepaliveAck   chan struct{}   // keepalive 确认已暂停/恢复
+	keepalivePause chan bool     // true=pause, false=resume
+	keepaliveAck   chan struct{} // keepalive 确认已暂停/恢复
 	pingTicker     *time.Ticker
 	readIdle       time.Duration
 }
@@ -457,14 +457,14 @@ func (c *Client) keepalive(interval time.Duration) {
 				c.mu.Lock()
 				err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
 				c.mu.Unlock()
-				
+
 				if err != nil {
 					log.Printf("ttyd: keepalive write failed: %v", err)
 					return
 				}
 				log.Printf("ttyd: keepalive ping sent")
 			}
-			
+
 		case pause := <-c.keepalivePause:
 			paused = pause
 			if paused {
@@ -474,7 +474,7 @@ func (c *Client) keepalive(interval time.Duration) {
 			}
 			// 发送确认信号
 			c.keepaliveAck <- struct{}{}
-			
+
 		case <-c.keepaliveQuit:
 			log.Printf("ttyd: keepalive stopped")
 			return
