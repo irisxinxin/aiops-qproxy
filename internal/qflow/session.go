@@ -80,10 +80,10 @@ func (s *Session) Clear() error {
 	return s.ClearWithContext(context.Background())
 }
 func (s *Session) ClearWithContext(ctx context.Context) error {
-	// 明确的超时包裹，避免卡死
-	cctx, cancel := context.WithTimeout(ctx, s.opts.IdleTO)
+    // 明确的超时包裹，避免卡死（/clear 属于管理命令，缩短等待）
+    cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	_, err := s.cli.Ask(cctx, "/clear", s.opts.IdleTO)
+    _, err := s.cli.Ask(cctx, "/clear", 2*time.Second)
 	return err
 }
 func (s *Session) ContextClear() error {
