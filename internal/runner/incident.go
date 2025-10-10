@@ -59,7 +59,7 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 		return "", err
 	}
 	s := lease.Session()
-	
+
 	// 注意：不在这里 defer Release()，而是在函数最后手动 Release
 	// 原因：defer 会在函数返回前执行清理，但这时 AskOnce 可能还在等待响应
 	var releaseOnce sync.Once
@@ -103,7 +103,7 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	// 使用带超时的 context，避免清理操作阻塞
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cleanupCancel()
-	
+
 	// 清理 Q CLI 的上下文，但不记录错误（只标记 broken）
 	if e := s.ContextClearWithContext(cleanupCtx); e != nil && qflow.IsConnError(e) {
 		lease.MarkBroken()
