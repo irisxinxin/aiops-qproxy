@@ -348,8 +348,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 // readResponse 读取 Q CLI 的响应（发送 prompt 后调用）
 // 使用智能超时策略：看到响应内容和提示符后缩短等待时间
 func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
-    var buf bytes.Buffer
-    msgCount := 0
+	var buf bytes.Buffer
+	msgCount := 0
 
 	if ttydDebugEnabled() {
 		log.Printf("ttyd: reading response (NO ReadDeadline, rely on context timeout)")
@@ -366,19 +366,19 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			// 超时检查：如果 buf 里已有提示符，说明响应完成
-            if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				tail := buf.Bytes()
 				if len(tail) > 500 {
 					tail = tail[len(tail)-500:]
 				}
 				cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
-                if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
-                    if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-                        log.Printf("ttyd: timeout but response looks complete (msgs:%d, size:%d)", msgCount, buf.Len())
-                        return buf.String(), nil
-                    }
-                }
+				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+						log.Printf("ttyd: timeout but response looks complete (msgs:%d, size:%d)", msgCount, buf.Len())
+						return buf.String(), nil
+					}
+				}
 			}
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("ttyd: peer closed connection during response read: %v", err)
@@ -394,23 +394,23 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 
 		// ttyd 1.7.4 协议：服务器发送的消息以类型字符开头
 		// '0' = OUTPUT (终端输出), 我们只关心这个类型
-        if len(data) > 0 {
-            msgType := data[0]
-            if msgType == '0' {
-                // OUTPUT 类型，写入实际内容（跳过类型前缀）
-                if len(data) > 1 {
-                    actualContent := data[1:]
-                    buf.Write(actualContent)
-                    capBuffer(&buf)
-                }
-                msgCount++
-            } else {
-                // 其他类型，忽略
-                if ttydDebugEnabled() {
-                    log.Printf("ttyd: ignoring message type '%c'", msgType)
-                }
-            }
-        }
+		if len(data) > 0 {
+			msgType := data[0]
+			if msgType == '0' {
+				// OUTPUT 类型，写入实际内容（跳过类型前缀）
+				if len(data) > 1 {
+					actualContent := data[1:]
+					buf.Write(actualContent)
+					capBuffer(&buf)
+				}
+				msgCount++
+			} else {
+				// 其他类型，忽略
+				if ttydDebugEnabled() {
+					log.Printf("ttyd: ignoring message type '%c'", msgType)
+				}
+			}
+		}
 
 		// 检查是否收到提示符（只检查末尾 500 字节）
 		tail := buf.Bytes()

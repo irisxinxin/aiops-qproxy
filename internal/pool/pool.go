@@ -26,15 +26,7 @@ func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
 		opts:  o,
 	}
 
-	// 异步创建所有连接，第一个立即尝试，后续间隔创建避免过载
-	go func() {
-		for i := 0; i < size; i++ {
-			if i > 0 {
-				time.Sleep(time.Duration(i) * time.Second)
-			}
-			p.fillOne(context.Background())
-		}
-	}()
+    // 延迟建立：不在构造时主动创建连接，首次 Acquire 时再拨号
 
 	return p, nil
 }
@@ -48,14 +40,17 @@ type Lease struct {
 }
 
 func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
-	select {
-	case s := <-p.slots:
-		// 简单快速返回，不做健康检查
-		// 健康检查开销太大，依赖使用时的错误处理和 MarkBroken 机制
-		return &Lease{p: p, s: s, t0: time.Now()}, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+    select {
+    case s := <-p.slots:
+        return &Lease{p: p, s: s, t0: time.Now()}, nil
+    default:
+        // 没有可用连接则同步拨号一个（阻塞直到创建或超时）
+        s, err := qflow.New(ctx, p.opts)
+        if err != nil {
+            return nil, err
+        }
+        return &Lease{p: p, s: s, t0: time.Now()}, nil
+    }
 }
 func (l *Lease) Session() *qflow.Session { return l.s }
 func (l *Lease) MarkBroken()             { l.broken = true }
