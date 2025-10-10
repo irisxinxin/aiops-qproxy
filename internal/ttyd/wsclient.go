@@ -165,12 +165,16 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
 
 	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
+	log.Printf("ttyd: checking keepalive config: opt.KeepAlive=%v", opt.KeepAlive)
 	if opt.KeepAlive > 0 {
 		c.keepaliveQuit = make(chan struct{})
 		c.keepalivePause = make(chan bool)
 		c.keepaliveAck = make(chan struct{})
+		log.Printf("ttyd: starting keepalive goroutine with interval %v", opt.KeepAlive)
 		go c.keepalive(opt.KeepAlive)
 		log.Printf("ttyd: keepalive started (interval: %v)", opt.KeepAlive)
+	} else {
+		log.Printf("ttyd: keepalive DISABLED (opt.KeepAlive is %v)", opt.KeepAlive)
 	}
 	return c, nil
 }
@@ -407,16 +411,24 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 
 	// 暂停 keepalive，避免干扰响应读取，并等待确认
 	if c.keepalivePause != nil {
-		c.keepalivePause <- true
-		<-c.keepaliveAck // 等待 keepalive 确认已暂停
-		log.Printf("ttyd: keepalive pause confirmed, starting Ask")
+		select {
+		case c.keepalivePause <- true:
+			<-c.keepaliveAck // 等待 keepalive 确认已暂停
+			log.Printf("ttyd: keepalive pause confirmed, starting Ask")
+		case <-time.After(1 * time.Second):
+			log.Printf("ttyd: keepalive pause timeout (keepalive not running?), proceeding anyway")
+		}
 	}
 	// 确保 Ask 结束后恢复 keepalive
 	defer func() {
 		if c.keepalivePause != nil {
-			c.keepalivePause <- false
-			<-c.keepaliveAck // 等待 keepalive 确认已恢复
-			log.Printf("ttyd: keepalive resume confirmed")
+			select {
+			case c.keepalivePause <- false:
+				<-c.keepaliveAck // 等待 keepalive 确认已恢复
+				log.Printf("ttyd: keepalive resume confirmed")
+			case <-time.After(1 * time.Second):
+				log.Printf("ttyd: keepalive resume timeout (keepalive not running?)")
+			}
 		}
 	}()
 
@@ -444,6 +456,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 // keepalive 定期发送空终端输入以保持 ttyd 连接活跃
 // 支持暂停/恢复机制，避免干扰 Ask 操作
 func (c *Client) keepalive(interval time.Duration) {
+	log.Printf("ttyd: keepalive goroutine started, interval=%v", interval)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	paused := false
