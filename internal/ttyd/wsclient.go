@@ -471,7 +471,7 @@ func (c *Client) keepalive(interval time.Duration) {
 				deadline := time.Now().Add(5 * time.Second)
 				err := c.conn.WriteControl(websocket.PingMessage, []byte("keepalive"), deadline)
 				c.mu.Unlock()
-				
+
 				if err != nil {
 					log.Printf("ttyd: keepalive ping failed: %v (connection may be dead, stopping keepalive)", err)
 					return

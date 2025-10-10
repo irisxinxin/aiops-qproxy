@@ -130,6 +130,18 @@ func (s *Session) Close() error {
 	return s.cli.Close()
 }
 
+// Healthy 检查 session 的连接是否健康
+func (s *Session) Healthy(ctx context.Context) bool {
+	if s.cli == nil {
+		return false
+	}
+	// 使用 Ping 检查连接
+	if err := s.cli.Ping(ctx); err != nil {
+		return false
+	}
+	return true
+}
+
 // IsConnError reports if err looks like a dropped/closed ws.
 func IsConnError(err error) bool {
 	if err == nil {

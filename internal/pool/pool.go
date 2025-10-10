@@ -47,11 +47,21 @@ type Lease struct {
 }
 
 func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
-	select {
-	case s := <-p.slots:
-		return &Lease{p: p, s: s, t0: time.Now()}, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	for {
+		select {
+		case s := <-p.slots:
+			// 检查 session 是否健康
+			if !s.Healthy(ctx) {
+				log.Printf("pool: acquired session is unhealthy, replacing it")
+				_ = s.Close()
+				// 异步填充新的 session
+				go p.fillOne(context.Background())
+				continue // 继续等待下一个 session
+			}
+			return &Lease{p: p, s: s, t0: time.Now()}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 }
 func (l *Lease) Session() *qflow.Session { return l.s }
