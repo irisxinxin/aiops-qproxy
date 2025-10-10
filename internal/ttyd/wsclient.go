@@ -456,7 +456,24 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 
 	// bash 包装器会在收到输入后通过管道发送给 q chat
 	// q chat 处理完成后自动退出（因为 stdin 关闭）
-	response, err := c.readResponse(ctx, idle)
+	// 使用 idle 作为上限超时：idle 更短时优先；否则沿用上层 ctx
+	useCtx := ctx
+	if idle > 0 {
+		if dl, ok := ctx.Deadline(); ok {
+			if rem := time.Until(dl); rem <= 0 {
+				// ctx 已到期，直接用它
+			} else if idle < rem {
+				var cancel context.CancelFunc
+				useCtx, cancel = context.WithTimeout(ctx, idle)
+				defer cancel()
+			}
+		} else {
+			var cancel context.CancelFunc
+			useCtx, cancel = context.WithTimeout(ctx, idle)
+			defer cancel()
+		}
+	}
+	response, err := c.readResponse(useCtx, idle)
 
 	// 不设置 ReadDeadline！保持连接永不超时
 
@@ -474,13 +491,13 @@ func (c *Client) Close() error {
 
 // Ping 健康探针
 func (c *Client) Ping(ctx context.Context) error {
-    // 让 Ping 遵循调用方的超时（默认 5s 上限）
-    to := 5 * time.Second
-    if dl, ok := ctx.Deadline(); ok {
-        if rem := time.Until(dl); rem > 0 && rem < to {
-            to = rem
-        }
-    }
-    deadline := time.Now().Add(to)
-    return c.conn.WriteControl(websocket.PingMessage, []byte("k"), deadline)
+	// 让 Ping 遵循调用方的超时（默认 5s 上限）
+	to := 5 * time.Second
+	if dl, ok := ctx.Deadline(); ok {
+		if rem := time.Until(dl); rem > 0 && rem < to {
+			to = rem
+		}
+	}
+	deadline := time.Now().Add(to)
+	return c.conn.WriteControl(websocket.PingMessage, []byte("k"), deadline)
 }

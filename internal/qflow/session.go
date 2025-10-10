@@ -142,8 +142,16 @@ func stripPromptEcho(out, prompt string) string {
 	pn := strings.ReplaceAll(prompt, "\r\n", "\n")
 	pn = strings.ReplaceAll(pn, "\r", "\n")
 
+	// 0) 如果原始输出中已包含完整 JSON，优先提取并返回（避免误删）
+	if js, ok := extractFirstJSON(on); ok {
+		return strings.TrimSpace(js)
+	}
+
 	// remove exact prompt chunk first
-	on = strings.ReplaceAll(on, pn, "")
+	// 仅当 prompt 出现在开头附近时，移除“首个”匹配，避免全局删除误伤
+	if idx := strings.Index(on, pn); idx >= 0 && idx <= 256 { // 限定在前 256 字节内
+		on = on[:idx] + on[idx+len(pn):]
+	}
 
 	// line-level filtering: drop TUI prefixes and prompt echo lines
 	// decode common unicode escapes to match text
@@ -188,9 +196,13 @@ func stripPromptEcho(out, prompt string) string {
 	}
 	cleaned := strings.TrimSpace(b.String())
 
-	// If output contains a JSON object, keep only the first full JSON block.
+	// 2) 若清洗后包含 JSON，保留首个 JSON；否则返回文本
 	if js, ok := extractFirstJSON(cleaned); ok {
 		return strings.TrimSpace(js)
+	}
+	// 3) 安全回退：若清洗结果为空且原始有内容，返回原始精简文本
+	if cleaned == "" {
+		return strings.TrimSpace(on)
 	}
 	return cleaned
 }

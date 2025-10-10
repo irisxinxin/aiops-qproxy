@@ -53,7 +53,13 @@ func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
 		select {
 		case s := <-p.slots:
 			// 轻量健康校验：短超时 Ping（只在取用时做一次，避免后台 keepalive）
-			hcCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			hcTO := 300 * time.Millisecond
+			if dl, ok := ctx.Deadline(); ok {
+				if rem := time.Until(dl); rem > 0 && rem < hcTO {
+					hcTO = rem
+				}
+			}
+			hcCtx, cancel := context.WithTimeout(ctx, hcTO)
 			healthy := s.Healthy(hcCtx)
 			cancel()
 			if healthy {
@@ -108,15 +114,15 @@ func (p *Pool) fillOne(ctx context.Context) {
 		return
 	}
 
-    backoff := 500 * time.Millisecond
+	backoff := 500 * time.Millisecond
 	maxAttempts := 10 // 最大重试次数
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-        log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
-        // 为每次拨号设置上限超时，避免无提示符时永久阻塞在 readUntilPrompt
-        dialTO := 60 * time.Second
-        attemptCtx, cancel := context.WithTimeout(ctx, dialTO)
-        s, err := qflow.New(attemptCtx, p.opts)
-        cancel()
+		log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
+		// 为每次拨号设置上限超时，避免无提示符时永久阻塞在 readUntilPrompt
+		dialTO := 60 * time.Second
+		attemptCtx, cancel := context.WithTimeout(ctx, dialTO)
+		s, err := qflow.New(attemptCtx, p.opts)
+		cancel()
 		if err == nil {
 			log.Printf("pool: session created successfully")
 			// 重置失败计数
