@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"aiops-qproxy/internal/pool"
@@ -57,27 +58,17 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	if err != nil {
 		return "", err
 	}
-	defer lease.Release()
 	s := lease.Session()
-
-	// Always cleanup the session before releasing (avoid context leakage)
-	// 使用带超时的 context，避免清理操作长时间阻塞
-	defer func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cleanupCancel()
-
-		// 串行执行清理，使用带超时的 context
-		if e := s.ContextClearWithContext(cleanupCtx); e != nil {
-			if qflow.IsConnError(e) {
-				lease.MarkBroken()
-			}
-		}
-		if e := s.ClearWithContext(cleanupCtx); e != nil {
-			if qflow.IsConnError(e) {
-				lease.MarkBroken()
-			}
-		}
-	}()
+	
+	// 注意：不在这里 defer Release()，而是在函数最后手动 Release
+	// 原因：defer 会在函数返回前执行清理，但这时 AskOnce 可能还在等待响应
+	var releaseOnce sync.Once
+	doRelease := func() {
+		releaseOnce.Do(func() {
+			lease.Release()
+		})
+	}
+	defer doRelease() // 确保无论如何都会释放
 
 	// 3) /load previous conversation if exists
 	if _, err := os.Stat(convPath); err == nil {
@@ -106,6 +97,19 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	if e := s.Save(convPath, true); e != nil && qflow.IsConnError(e) {
 		lease.MarkBroken()
 		return "", e
+	}
+
+	// 6) 清理 session context（成功完成后才清理）
+	// 使用带超时的 context，避免清理操作阻塞
+	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cleanupCancel()
+	
+	// 清理 Q CLI 的上下文，但不记录错误（只标记 broken）
+	if e := s.ContextClearWithContext(cleanupCtx); e != nil && qflow.IsConnError(e) {
+		lease.MarkBroken()
+	}
+	if e := s.ClearWithContext(cleanupCtx); e != nil && qflow.IsConnError(e) {
+		lease.MarkBroken()
 	}
 
 	return out, nil
