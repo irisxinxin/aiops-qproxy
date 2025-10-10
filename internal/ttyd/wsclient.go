@@ -326,7 +326,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 				cleaned = strings.TrimRight(cleaned, " \r\n\t")
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-						log.Printf("ttyd: timeout but response looks complete (prompts:%d, msgs:%d, size:%d)", 
+						log.Printf("ttyd: timeout but response looks complete (prompts:%d, msgs:%d, size:%d)",
 							promptCount, msgCount, buf.Len())
 						return buf.String(), nil
 					}
