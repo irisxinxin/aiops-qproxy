@@ -802,7 +802,9 @@ func main() {
 					cleanedOut := cleanText(out)
 					rsum := sha1.Sum([]byte(cleanedOut))
 					rhash := hex.EncodeToString(rsum[:])
-					if len(rhash) > 12 { rhash = rhash[:12] }
+					if len(rhash) > 12 {
+						rhash = rhash[:12]
+					}
 					log.Printf("incident: processing completed for %s, raw_response_len=%d, cleaned_len=%d, response_sha1=%s",
 						in.IncidentKey, len(out), len(cleanedOut), rhash)
 					_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanedOut})
