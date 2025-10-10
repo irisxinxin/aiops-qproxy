@@ -20,28 +20,34 @@ import (
 )
 
 type DialOptions struct {
-	Endpoint       string
-	NoAuth         bool
+	Endpoint string
+	// no-auth (bare) mode: do not send Authorization header, do not fetch /token,
+	// and send hello JSON without AuthToken.
+	NoAuth bool
+
+	// optional (kept for backward-compat; ignored when NoAuth==true)
 	Username       string
 	Password       string
 	AuthHeaderName string
 	AuthHeaderVal  string
 	TokenURL       string
-	HandshakeTO    time.Duration
-	// 新增：首次连接后等待 Q 出现提示符的最大时长（覆盖 MCP 启动慢）
-	InitWait    time.Duration
+
+	HandshakeTO time.Duration
 	ConnectTO   time.Duration
 	ReadIdleTO  time.Duration
 	KeepAlive   time.Duration
 	InsecureTLS bool
-	// ctrlc/newline/none；建议 newline，避免 ^C 杀掉 q
+	// 唤醒 Q 的方式：ctrlc（默认）/ newline / none
 	WakeMode string
 }
 
 type Client struct {
-	conn          *websocket.Conn
-	mu            sync.Mutex
-	url           string
+	conn *websocket.Conn
+	mu   sync.Mutex
+	url  string
+	// config for reconnects or hello
+	opt           DialOptions
+	done          chan struct{}
 	keepaliveQuit chan struct{}
 	pingTicker    *time.Ticker
 	readIdle      time.Duration
@@ -51,36 +57,7 @@ type helloFrame struct {
 	AuthToken string `json:"AuthToken,omitempty"`
 	Columns   int    `json:"columns"`
 	Rows      int    `json:"rows"`
-}
-
-// —— 工具：去 ANSI；提示符检测 —— //
-var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
-
-func stripANSI(s string) string { return ansiRegex.ReplaceAllString(s, "") }
-func isAlnum(b byte) bool       { return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
-func getTail(b []byte, n int) string {
-	if len(b) <= n {
-		return string(b)
-	}
-	return string(b[len(b)-n:])
-}
-
-// 检查 buffer 末尾是否有提示符（之前版本的逻辑）
-func hasPrompt(buf []byte) bool {
-	tail := buf
-	if len(tail) > 500 {
-		tail = tail[len(tail)-500:]
-	}
-	cleaned := stripANSI(string(tail))
-	cleaned = strings.TrimRight(cleaned, " \r\n\t")
-	// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
-	if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
-		// 检查 > 前一个字符（如果有）不是字母数字
-		if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-			return true
-		}
-	}
-	return false
+	// allow future fields
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -95,56 +72,98 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		u.Path = "/ws"
 	}
 
-	h := http.Header{} // 裸跑：不带鉴权头
-	if opt.ConnectTO <= 0 {
-		opt.ConnectTO = 5 * time.Second
-	}
+	h := http.Header{} // 留空：NoAuth 下不携带任何鉴权头
+
 	d := websocket.Dialer{
 		HandshakeTimeout: opt.HandshakeTO,
 		Subprotocols:     []string{"tty"},
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: opt.InsecureTLS},
-		NetDialContext:   (&net.Dialer{Timeout: opt.ConnectTO, KeepAlive: 30 * time.Second}).DialContext,
 	}
+	if opt.ConnectTO <= 0 {
+		opt.ConnectTO = 5 * time.Second
+	}
+	d.NetDialContext = (&net.Dialer{
+		Timeout:   opt.ConnectTO,
+		KeepAlive: 30 * time.Second,
+	}).DialContext
+
+	log.Printf("ttyd: attempting to connect to %s (NoAuth=%v)", u.String(), opt.NoAuth)
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {
+		log.Printf("ttyd: connection failed: %v", err)
 		return nil, err
 	}
-	c := &Client{conn: conn, url: u.String(), keepaliveQuit: make(chan struct{}), readIdle: opt.ReadIdleTO}
-	c.conn.SetReadLimit(16 << 20)
-	if opt.ReadIdleTO <= 0 {
-		opt.ReadIdleTO = 60 * time.Second
+	log.Printf("ttyd: WebSocket connection established")
+	c := &Client{
+		conn:          conn,
+		url:           u.String(),
+		opt:           opt,
+		done:          make(chan struct{}),
+		keepaliveQuit: make(chan struct{}),
+		readIdle:      opt.ReadIdleTO,
 	}
-	if opt.InitWait <= 0 {
-		opt.InitWait = 75 * time.Second
-	} // 关键：把初始化等待拉长
+	// 读限制与超时，Pong 续期
+	c.conn.SetReadLimit(16 << 20)
 	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
 	c.conn.SetPongHandler(func(string) error {
 		return c.conn.SetReadDeadline(time.Now().Add(c.readIdle))
 	})
 
-	// 首帧：hello（不带 '0' 操作码）
-	hf := helloFrame{Columns: 120, Rows: 30}
-	b, _ := json.Marshal(&hf)
-	if err := c.conn.WriteMessage(websocket.TextMessage, b); err != nil {
+	// ---- 首帧：只发 columns/rows；NoAuth 下不带 AuthToken ----
+	hello := helloFrame{Columns: 120, Rows: 30}
+	// （如果以后需要支持鉴权模式，这里可以根据 opt.NoAuth=false 去附加 AuthToken）
+	b, _ := json.Marshal(&hello)
+	log.Printf("ttyd: sending hello message: %s", string(b))
+	if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
+		log.Printf("ttyd: hello message failed: %v", err)
 		_ = conn.Close()
-		return nil, fmt.Errorf("ttyd hello: %w", err)
+		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
+	log.Printf("ttyd: hello message sent successfully")
 
-	// 唤醒：默认 newline（更稳）
-	switch strings.ToLower(opt.WakeMode) {
+	// ---- 关键：先"唤醒" Q CLI，再等提示符（避免卡在 MCP 初始化）----
+	// Q CLI 初启会加载多个 MCP 工具，默认要等它们 ready；
+	// 只有收到一次用户输入（哪怕空行或 Ctrl-C）才给提示符。
+	mode := opt.WakeMode
+	if mode == "" {
+		mode = "newline" // 默认使用 newline，避免 Ctrl-C 导致 Q CLI 退出
+	}
+	log.Printf("ttyd: waking Q CLI with mode: %s", mode)
+	switch mode {
 	case "ctrlc":
-		_ = c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03})
-	case "newline", "":
-		_ = c.conn.WriteMessage(websocket.TextMessage, []byte{'0', '\r'})
-	}
-	// 初始化等待使用 InitWait（不要 15s 就断）
-	if _, err := c.readUntilPrompt(ctx, opt.InitWait); err != nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("ttyd init read: %w", err)
+		// 发送 Ctrl-C + 回车，立刻进入可交互状态
+		// ttyd 1.7.4 协议：需要加 '0' (INPUT) 类型前缀
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03}); err != nil {
+			log.Printf("ttyd: wake Ctrl-C failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
+			log.Printf("ttyd: wake newline failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+	case "newline":
+		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
+			log.Printf("ttyd: wake newline failed: %v", err)
+			_ = conn.Close()
+			return nil, fmt.Errorf("ttyd wake failed: %w", err)
+		}
+	case "none":
+		// 不发送任何唤醒字符
 	}
 
-	// 初始化完成后，重置 ReadDeadline 为 24 小时，保持连接长期有效
+	log.Printf("ttyd: waiting for initial prompt...")
+	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("ttyd init read failed: %w", err)
+	}
+
+	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置
+	// 设置为超长超时（24小时），让连接保持活跃
+	// 只要 WebSocket 本身不断，就让它一直开着
 	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
 
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
@@ -153,90 +172,278 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	return c, nil
 }
 
-// 统一键盘输入：必须 '0'+payload，并补 '\r'（等于按回车）
-func (c *Client) SendLine(s string) error {
+func (c *Client) SendLine(line string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	payload := append([]byte{'0'}, []byte(s)...)
-	if !strings.HasSuffix(s, "\r") && !strings.HasSuffix(s, "\n") {
-		payload = append(payload, '\r')
-	}
-	return c.conn.WriteMessage(websocket.TextMessage, payload)
+	// ttyd 1.7.4 协议：客户端输入需要以 "0" (INPUT 类型) 开头
+	// 格式: "0" + 实际输入内容 + "\r" (回车符，触发 Q CLI 执行)
+	msg := "0" + line + "\r"
+	return c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }
-func (c *Client) SendCtrlC() error {
+
+// 发送 Ctrl-C
+func (c *Client) sendCtrlC() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	// ttyd 1.7.4 协议：Ctrl-C 也需要 INPUT 类型前缀
+	// 格式: "0" + 0x03
 	return c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03})
 }
 
-// 读取到提示符为止；见到提示符后进入短等待（~1.2s）无新数据即返回
-func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte, error) {
-	hard := time.Now().Add(to)
-	_ = c.conn.SetReadDeadline(hard) // 初始先给个硬截止
+// 发送 Ctrl-D (EOF) - 告诉 Q CLI 输入结束
+func (c *Client) sendCtrlD() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// ttyd 1.7.4 协议：Ctrl-D 也需要 INPUT 类型前缀
+	// 格式: "0" + 0x04
+	return c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x04})
+}
+
+// 全局编译正则表达式，避免重复编译
+var (
+	ansiRegex = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
+)
+
+// isAlnum 检查字符是否为字母或数字
+func isAlnum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
+func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
-	sawPrompt := false
+	hardDeadline := time.Now().Add(idle)
+	_ = c.conn.SetReadDeadline(hardDeadline)
+
+	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
+	msgCount := 0
+	promptLikeSeen := false // 是否看到过疑似提示符
+
 	for {
-		// 支持外部取消
+		// 检查 context 是否被取消
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			log.Printf("ttyd: context cancelled after %d messages", msgCount)
+			return "", ctx.Err()
 		default:
 		}
-		mt, p, err := c.conn.ReadMessage()
+
+		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
-			// 如果已经见到提示符，EOF/超时都当作成功收尾返回已收集内容
-			if sawPrompt {
-				return buf.Bytes(), nil
+			// 如果是超时，但 buf 里已有提示符，说明已到齐，返回成功
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				// 只检查末尾 500 字节，避免对超大 buf 做全量正则替换
+				tail := buf.Bytes()
+				if len(tail) > 500 {
+					tail = tail[len(tail)-500:]
+				}
+				cleaned := ansiRegex.ReplaceAllString(string(tail), "")
+				cleaned = strings.TrimRight(cleaned, " \r\n\t")
+				// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
+				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+					// 检查 > 前一个字符（如果有）不是字母数字
+					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+						log.Printf("ttyd: prompt detected on timeout after %d messages, buf size: %d", msgCount, buf.Len())
+						return buf.String(), nil
+					}
+				}
 			}
-			// 未见提示符：如果只是 Read 超时且没到硬截止，继续等
-			var nerr net.Error
-			if errors.As(err, &nerr) && nerr.Timeout() && time.Now().Before(hard) {
-				_ = c.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
-				continue
-			}
-			return nil, err
+			log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
+			return "", err
 		}
-		if mt != websocket.TextMessage || len(p) == 0 {
+		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
 			continue
 		}
-		op := p[0]
-		data := p[1:]
-		if op != '0' {
-			continue
-		} // 只关心 OUTPUT
-		buf.Write(data)
-		// 使用之前版本的提示符检测逻辑
-		if hasPrompt(buf.Bytes()) {
-			sawPrompt = true
-			_ = c.conn.SetReadDeadline(time.Now().Add(1200 * time.Millisecond))
-			log.Printf("ttyd: prompt detected, buf tail (last 200 chars): %q", getTail(buf.Bytes(), 200))
-		}
-		if time.Now().After(hard) {
-			if sawPrompt {
-				return buf.Bytes(), nil
+
+		// ttyd 1.7.4 协议：服务器发送的消息以类型字符开头
+		// '0' = OUTPUT (终端输出), '1' = SET_WINDOW_TITLE, '2' = SET_PREFERENCES
+		// 我们只关心 OUTPUT，需要跳过第一个字节（类型前缀）
+		var actualData []byte
+		if len(data) > 0 {
+			msgType := data[0]
+			if msgType == '0' {
+				// OUTPUT 类型，写入实际内容（跳过类型前缀）
+				if len(data) > 1 {
+					actualData = data[1:]
+					buf.Write(actualData)
+				}
+				msgCount++
+			} else {
+				// 其他类型（SET_WINDOW_TITLE 等），忽略
+				log.Printf("ttyd: ignoring message type '%c'", msgType)
+				continue // 跳过这个消息，继续读下一个
 			}
-			// 超时前打印收到的内容，方便调试
-			log.Printf("ttyd: readUntilPrompt timeout, buf size=%d, tail (last 300 chars): %q", buf.Len(), getTail(buf.Bytes(), 300))
-			return nil, context.DeadlineExceeded
+		}
+
+		// 只检查最后 500 字节，避免对超大 buf 做全量正则替换（性能优化）
+		tail := buf.Bytes()
+		if len(tail) > 500 {
+			tail = tail[len(tail)-500:]
+		}
+		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
+		cleaned = strings.TrimRight(cleaned, " \r\n\t")
+		// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
+		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+			// 检查 > 前一个字符（如果有）不是字母数字
+			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+				log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len())
+				return buf.String(), nil
+			}
+		}
+
+		// 智能超时策略：
+		// 1. 看到 ">" 字符后才用短超时（3秒），因为提示符可能快到了
+		// 2. 否则用长超时（30秒），给 Q CLI banner 足够时间
+		// 注意：这里检查去除前缀后的实际内容
+		if len(actualData) > 0 && strings.Contains(string(actualData), ">") || promptLikeSeen {
+			promptLikeSeen = true
+			_ = c.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		} else {
+			_ = c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		}
 	}
 }
 
-// Ask: 发送 prompt，等待响应（类似之前的实现，但使用新的 readUntilPrompt）
-func (c *Client) Ask(ctx context.Context, prompt string, timeout time.Duration) (string, error) {
-	// 发送 prompt
+// readResponse 读取 Q CLI 的响应（发送 prompt 后调用）
+// 使用智能超时策略：看到响应内容和提示符后缩短等待时间
+func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
+	var buf bytes.Buffer
+	msgCount := 0
+	lastDataTime := time.Now()
+	promptCount := 0    // 计数提示符出现次数（第一次是回显，第二次是响应结束）
+	hasContent := false // 是否已收到实际内容（非回显）
+
+	log.Printf("ttyd: reading response (timeout: %v)", idle)
+
+	for {
+		// 智能超时策略：
+		// - 看到第二个提示符且有实际内容后，用短超时（5秒），响应可能已完成
+		// - 否则用长超时（idle），给 Q CLI 足够时间思考和生成响应
+		timeout := idle
+		if promptCount >= 2 && hasContent {
+			timeout = 5 * time.Second
+		}
+		deadline := lastDataTime.Add(timeout)
+		_ = c.conn.SetReadDeadline(deadline)
+
+		select {
+		case <-ctx.Done():
+			log.Printf("ttyd: context cancelled after %d messages", msgCount)
+			return "", ctx.Err()
+		default:
+		}
+
+		typ, data, err := c.conn.ReadMessage()
+		if err != nil {
+			// 超时检查：如果 buf 里已有提示符，说明响应完成
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				tail := buf.Bytes()
+				if len(tail) > 500 {
+					tail = tail[len(tail)-500:]
+				}
+				cleaned := ansiRegex.ReplaceAllString(string(tail), "")
+				cleaned = strings.TrimRight(cleaned, " \r\n\t")
+				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+						log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+						return buf.String(), nil
+					}
+				}
+			}
+			log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+			return "", err
+		}
+
+		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
+			continue
+		}
+
+		// ttyd 1.7.4 协议：服务器发送的消息以类型字符开头
+		// '0' = OUTPUT (终端输出), 我们只关心这个类型
+		if len(data) > 0 {
+			msgType := data[0]
+			if msgType == '0' {
+				// OUTPUT 类型，写入实际内容（跳过类型前缀）
+				if len(data) > 1 {
+					actualContent := data[1:]
+					buf.Write(actualContent)
+					content := string(actualContent)
+
+					// 检查是否包含提示符 ">"
+					if strings.Contains(content, ">") {
+						promptCount++
+						log.Printf("ttyd: prompt #%d detected in response", promptCount)
+					}
+
+					// 检查是否有实际内容（不只是回显和提示符）
+					// 如果内容长度 > 50 或包含关键词，认为是实际响应
+					if len(content) > 50 ||
+						strings.Contains(strings.ToLower(content), "hello") ||
+						strings.Contains(content, "答") ||
+						strings.Contains(content, "Thinking") {
+						hasContent = true
+					}
+
+					// 记录收到的内容（调试用）
+					preview := content
+					if len(preview) > 100 {
+						preview = preview[:100] + "..."
+					}
+					log.Printf("ttyd: received OUTPUT [%d bytes]: %q", len(actualContent), preview)
+				}
+				msgCount++
+				lastDataTime = time.Now() // 更新最后收到数据的时间
+			} else {
+				// 其他类型，忽略
+				log.Printf("ttyd: ignoring message type '%c'", msgType)
+			}
+		}
+
+		// 检查是否收到提示符（只检查末尾 500 字节）
+		tail := buf.Bytes()
+		if len(tail) > 500 {
+			tail = tail[len(tail)-500:]
+		}
+		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
+		cleaned = strings.TrimRight(cleaned, " \r\n\t")
+		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+				log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+				return buf.String(), nil
+			}
+		}
+	}
+}
+
+func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (string, error) {
+	if strings.TrimSpace(prompt) == "" {
+		return "", errors.New("empty prompt")
+	}
+	// 检查 context 是否已取消
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
+	// 记录发送的 prompt（截断过长的内容）
+	promptPreview := prompt
+	if len(promptPreview) > 200 {
+		promptPreview = promptPreview[:200] + "... (truncated, total " + fmt.Sprintf("%d", len(prompt)) + " chars)"
+	}
+	log.Printf("ttyd: sending prompt: %q", promptPreview)
+
 	if err := c.SendLine(prompt); err != nil {
-		return "", fmt.Errorf("send: %w", err)
+		return "", err
 	}
-	// 读取响应
-	resp, err := c.readUntilPrompt(ctx, timeout)
-	if err != nil {
-		return "", fmt.Errorf("read: %w", err)
-	}
-	// 关键：readUntilPrompt 可能设置了短 deadline (1.2s)，需要重置为长超时
-	// 防止连接在空闲时被 ReadDeadline 关闭
+
+	// bash 包装器会在收到输入后通过管道发送给 q chat
+	// q chat 处理完成后自动退出（因为 stdin 关闭）
+	response, err := c.readResponse(ctx, idle)
+
+	// 读取完成后，重置 ReadDeadline 为 24 小时，保持连接活跃
 	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
-	return string(resp), nil
+
+	return response, err
 }
 
 func (c *Client) keepalive() {
@@ -253,7 +460,6 @@ func (c *Client) keepalive() {
 }
 
 func (c *Client) Close() error {
-	log.Printf("ttyd: closing WebSocket connection (url=%s)", c.url)
 	// 安全关闭 keepalive goroutine
 	select {
 	case <-c.keepaliveQuit:
@@ -266,9 +472,7 @@ func (c *Client) Close() error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	err := c.conn.Close()
-	log.Printf("ttyd: WebSocket connection closed (url=%s, err=%v)", c.url, err)
-	return err
+	return c.conn.Close()
 }
 
 // Ping 健康探针

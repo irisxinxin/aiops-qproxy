@@ -20,7 +20,6 @@ type Opts struct {
 	WSPass      string // ignored when NoAuth
 	IdleTO      time.Duration
 	Handshake   time.Duration
-	InitWait    time.Duration // 首次连接后等待 Q 出现提示符的最大时长
 	InsecureTLS bool
 	ConnectTO   time.Duration
 	KeepAlive   time.Duration // WebSocket ping 间隔，防止空闲连接被关闭
@@ -39,7 +38,6 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 		Username:       o.WSUser,
 		Password:       o.WSPass,
 		HandshakeTO:    o.Handshake,
-		InitWait:       o.InitWait,
 		ConnectTO:      o.ConnectTO,
 		ReadIdleTO:     o.IdleTO,
 		KeepAlive:      o.KeepAlive,
@@ -108,7 +106,6 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 			Username:       s.opts.WSUser,
 			Password:       s.opts.WSPass,
 			HandshakeTO:    s.opts.Handshake,
-			InitWait:       s.opts.InitWait,
 			ConnectTO:      s.opts.ConnectTO,
 			ReadIdleTO:     s.opts.IdleTO,
 			KeepAlive:      s.opts.KeepAlive,

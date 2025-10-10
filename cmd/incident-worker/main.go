@@ -414,8 +414,6 @@ func main() {
 		noauth = true
 	}
 	wake := strings.ToLower(getenv("QPROXY_Q_WAKE", "newline")) // ctrlc/newline/none (默认 newline 避免 Q CLI 退出)
-	initStr := getenv("QPROXY_WS_INIT_WAIT_SEC", "75")
-	initSec, _ := strconv.Atoi(initStr)
 
 	n, _ := strconv.Atoi(nStr)
 	ctx := context.Background()
@@ -423,11 +421,10 @@ func main() {
 		WSURL:          wsURL,
 		WSUser:         user,
 		WSPass:         pass,
-		IdleTO:         60 * time.Second,                     // 正常读超时 60s
-		Handshake:      10 * time.Second,                     // 握手超时
-		InitWait:       time.Duration(initSec) * time.Second, // 初始化等待 75s（给 MCP 足够时间）
-		ConnectTO:      5 * time.Second,                      // 连接超时
-		KeepAlive:      5 * time.Second,                      // 每 5 秒 Ping，防止 ttyd 超时
+		IdleTO:         120 * time.Second, // 增加到 120s，给 MCP servers 和 Q CLI 足够时间
+		Handshake:      30 * time.Second,  // 增加握手超时
+		ConnectTO:      10 * time.Second,  // 增加连接超时
+		KeepAlive:      5 * time.Second,   // 每 5 秒 Ping，防止 ttyd 超时
 		InsecureTLS:    insecure == "1" || strings.ToLower(insecure) == "true",
 		NoAuth:         noauth,
 		WakeMode:       wake,
