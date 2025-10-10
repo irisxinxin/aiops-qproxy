@@ -108,6 +108,11 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	c.conn.SetPongHandler(func(string) error {
 		return c.conn.SetReadDeadline(time.Now().Add(c.readIdle))
 	})
+	// 记录服务器主动关闭的原因
+	c.conn.SetCloseHandler(func(code int, text string) error {
+		log.Printf("ttyd: server sent close frame (code=%d, text=%q)", code, text)
+		return nil
+	})
 
 	// ---- 首帧：只发 columns/rows；NoAuth 下不带 AuthToken ----
 	hello := helloFrame{Columns: 120, Rows: 30}
@@ -165,7 +170,6 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	deadline24h := time.Now().Add(24 * time.Hour)
 	_ = c.conn.SetReadDeadline(deadline24h)
 	log.Printf("ttyd: read deadline reset to 24h after init (deadline=%v)", deadline24h.Format("2006-01-02 15:04:05"))
-
 
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
