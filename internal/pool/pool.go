@@ -104,10 +104,10 @@ func (p *Pool) fillOne(ctx context.Context) {
 				return
 			}
 		}
-		
+
 		// 增加失败计数
 		atomic.AddInt32(&p.failedAttempts, 1)
-		
+
 		sleep := withJitter(backoff)
 		if backoff < 8*time.Second {
 			backoff = time.Duration(math.Min(float64(backoff*2), float64(8*time.Second)))
