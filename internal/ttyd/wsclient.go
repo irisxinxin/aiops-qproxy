@@ -428,7 +428,9 @@ func (c *Client) keepalive() {
 			return
 		case <-c.pingTicker.C:
 			c.mu.Lock()
-			_ = c.conn.WriteControl(websocket.PingMessage, []byte("k"), time.Now().Add(5*time.Second))
+			// 发送一个空的终端输入（'0' + 空字符串）来保持 ttyd 认为连接活跃
+			// 单独的 WebSocket Ping 可能不够，ttyd 可能期望终端层面的输入
+			_ = c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
 			c.mu.Unlock()
 		}
 	}
