@@ -396,7 +396,7 @@ func main() {
 	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
 	user := getenv("QPROXY_WS_USER", "")
 	pass := getenv("QPROXY_WS_PASS", "")
-    nStr := getenv("QPROXY_WS_POOL", "1")
+	nStr := getenv("QPROXY_WS_POOL", "1")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
 	sopDir := getenv("QPROXY_SOP_DIR", "./ctx/sop") // SOP 目录
@@ -696,12 +696,14 @@ func main() {
 			return
 		}
 
-        // 记录收到的请求（含 prompt 指纹）
-        sum := sha1.Sum([]byte(in.Prompt))
-        phash := hex.EncodeToString(sum[:])
-        if len(phash) > 12 { phash = phash[:12] }
-        log.Printf("incident: received request - incident_key=%s, sop_id=%s, prompt_len=%d, prompt_sha1=%s",
-            in.IncidentKey, in.SopID, len(in.Prompt), phash)
+		// 记录收到的请求（含 prompt 指纹）
+		sum := sha1.Sum([]byte(in.Prompt))
+		phash := hex.EncodeToString(sum[:])
+		if len(phash) > 12 {
+			phash = phash[:12]
+		}
+		log.Printf("incident: received request - incident_key=%s, sop_id=%s, prompt_len=%d, prompt_sha1=%s",
+			in.IncidentKey, in.SopID, len(in.Prompt), phash)
 
 		// 保存完整的 prompt 到日志（便于调试）
 		log.Printf("=== PROMPT START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
