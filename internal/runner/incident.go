@@ -72,9 +72,16 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 
 	// 3) /load previous conversation if exists
 	if _, err := os.Stat(convPath); err == nil {
-		if e := s.Load(convPath); e != nil && qflow.IsConnError(e) {
-			lease.MarkBroken()
-			return "", e
+		log.Printf("runner: executing /load %s", convPath)
+		if e := s.Load(convPath); e != nil {
+			if qflow.IsConnError(e) {
+				lease.MarkBroken()
+				log.Printf("runner: /load failed (conn): %v", e)
+				return "", e
+			}
+			log.Printf("runner: /load failed: %v", e)
+		} else {
+			log.Printf("runner: /load ok")
 		}
 	}
 
@@ -90,13 +97,27 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	}
 
 	// 5) compact + save (overwrite)
-	if e := s.Compact(); e != nil && qflow.IsConnError(e) {
-		lease.MarkBroken()
-		return "", e
+	log.Printf("runner: executing /compact")
+	if e := s.Compact(); e != nil {
+		if qflow.IsConnError(e) {
+			lease.MarkBroken()
+			log.Printf("runner: /compact failed (conn): %v", e)
+			return "", e
+		}
+		log.Printf("runner: /compact failed: %v", e)
+	} else {
+		log.Printf("runner: /compact ok")
 	}
-	if e := s.Save(convPath, true); e != nil && qflow.IsConnError(e) {
-		lease.MarkBroken()
-		return "", e
+	log.Printf("runner: executing /save %s (force)", convPath)
+	if e := s.Save(convPath, true); e != nil {
+		if qflow.IsConnError(e) {
+			lease.MarkBroken()
+			log.Printf("runner: /save failed (conn): %v", e)
+			return "", e
+		}
+		log.Printf("runner: /save failed: %v", e)
+	} else {
+		log.Printf("runner: /save ok")
 	}
 
 	// 6) 清理 session context（成功完成后才清理）
@@ -104,12 +125,28 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cleanupCancel()
 
-	// 清理 Q CLI 的上下文，但不记录错误（只标记 broken）
-	if e := s.ContextClearWithContext(cleanupCtx); e != nil && qflow.IsConnError(e) {
-		lease.MarkBroken()
+	// 清理 Q CLI 的上下文，打印执行结果
+	log.Printf("runner: executing /context clear (cleanup)")
+	if e := s.ContextClearWithContext(cleanupCtx); e != nil {
+		if qflow.IsConnError(e) {
+			lease.MarkBroken()
+			log.Printf("runner: /context clear failed (conn): %v", e)
+		} else {
+			log.Printf("runner: /context clear failed: %v", e)
+		}
+	} else {
+		log.Printf("runner: /context clear ok")
 	}
-	if e := s.ClearWithContext(cleanupCtx); e != nil && qflow.IsConnError(e) {
-		lease.MarkBroken()
+	log.Printf("runner: executing /clear (cleanup)")
+	if e := s.ClearWithContext(cleanupCtx); e != nil {
+		if qflow.IsConnError(e) {
+			lease.MarkBroken()
+			log.Printf("runner: /clear failed (conn): %v", e)
+		} else {
+			log.Printf("runner: /clear failed: %v", e)
+		}
+	} else {
+		log.Printf("runner: /clear ok")
 	}
 
 	return out, nil

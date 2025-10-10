@@ -108,11 +108,15 @@ func (p *Pool) fillOne(ctx context.Context) {
 		return
 	}
 
-	backoff := 500 * time.Millisecond
+    backoff := 500 * time.Millisecond
 	maxAttempts := 10 // 最大重试次数
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
-		s, err := qflow.New(ctx, p.opts)
+        log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
+        // 为每次拨号设置上限超时，避免无提示符时永久阻塞在 readUntilPrompt
+        dialTO := 60 * time.Second
+        attemptCtx, cancel := context.WithTimeout(ctx, dialTO)
+        s, err := qflow.New(attemptCtx, p.opts)
+        cancel()
 		if err == nil {
 			log.Printf("pool: session created successfully")
 			// 重置失败计数

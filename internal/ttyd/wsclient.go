@@ -474,6 +474,13 @@ func (c *Client) Close() error {
 
 // Ping 健康探针
 func (c *Client) Ping(ctx context.Context) error {
-	deadline := time.Now().Add(5 * time.Second)
-	return c.conn.WriteControl(websocket.PingMessage, []byte("k"), deadline)
+    // 让 Ping 遵循调用方的超时（默认 5s 上限）
+    to := 5 * time.Second
+    if dl, ok := ctx.Deadline(); ok {
+        if rem := time.Until(dl); rem > 0 && rem < to {
+            to = rem
+        }
+    }
+    deadline := time.Now().Add(to)
+    return c.conn.WriteControl(websocket.PingMessage, []byte("k"), deadline)
 }

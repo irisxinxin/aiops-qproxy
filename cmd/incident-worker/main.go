@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -456,6 +457,22 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]int{"ready": ready, "size": size})
 	})
 
+	// 可选：周期性内存/协程日志（线上快速定位泄漏/增长），默认关闭
+	if secStr := getenv("QPROXY_MEMLOG_SEC", ""); strings.TrimSpace(secStr) != "" {
+		if sec, err := strconv.Atoi(secStr); err == nil && sec > 0 {
+			go func() {
+				t := time.NewTicker(time.Duration(sec) * time.Second)
+				defer t.Stop()
+				for range t.C {
+					var ms runtime.MemStats
+					runtime.ReadMemStats(&ms)
+					log.Printf("memlog: goroutines=%d alloc=%.2fMB heap_inuse=%.2fMB gc=%d",
+						runtime.NumGoroutine(), float64(ms.Alloc)/1024/1024, float64(ms.HeapInuse)/1024/1024, ms.NumGC)
+				}
+			}()
+		}
+	}
+
 	// 就绪探针：至少有一个可用连接
 	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		ready, _ := p.Stats()
@@ -508,16 +525,16 @@ func main() {
 		}
 		return ""
 	}
-    // buildPrompt 返回 (prompt, incident_key, sop_id, error)
-    buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, string, error) {
-        // 可调预算与格式选项
-        tdBudget := 2048
-        if v := getenv("QPROXY_TASK_DOC_BUDGET", ""); strings.TrimSpace(v) != "" {
-            if n, err := strconv.Atoi(v); err == nil && n > 256 {
-                tdBudget = n
-            }
-        }
-        alertPretty := strings.TrimSpace(getenv("QPROXY_ALERT_JSON_PRETTY", "0")) == "1"
+	// buildPrompt 返回 (prompt, incident_key, sop_id, error)
+	buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, string, error) {
+		// 可调预算与格式选项
+		tdBudget := 2048
+		if v := getenv("QPROXY_TASK_DOC_BUDGET", ""); strings.TrimSpace(v) != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 256 {
+				tdBudget = n
+			}
+		}
+		alertPretty := strings.TrimSpace(getenv("QPROXY_ALERT_JSON_PRETTY", "0")) == "1"
 		// 1. 优先使用外部构建器（保留当前优化的实现）
 		if cmd := getenv("QPROXY_PROMPT_BUILDER_CMD", ""); strings.TrimSpace(cmd) != "" {
 			c := exec.CommandContext(ctx, "bash", "-lc", cmd)
@@ -534,17 +551,17 @@ func main() {
 			return p, "", "", nil // 外部构建器不返回 incident_key 和 sop_id
 		}
 
-        // 2. 加载 task instructions（如果存在）
+		// 2. 加载 task instructions（如果存在）
 		taskPath := filepath.Join(".", "ctx", "task_instructions.md")
-        taskDoc := strings.TrimSpace(readFileSafe(taskPath))
-        if taskDoc != "" {
-            // 限制大小：可配置预算，最小保留 800 字节
-            limit := tdBudget
-            if limit < 800 {
-                limit = 800
-            }
-            taskDoc = trimToBytesUTF8(taskDoc, limit)
-        }
+		taskDoc := strings.TrimSpace(readFileSafe(taskPath))
+		if taskDoc != "" {
+			// 限制大小：可配置预算，最小保留 800 字节
+			limit := tdBudget
+			if limit < 800 {
+				limit = 800
+			}
+			taskDoc = trimToBytesUTF8(taskDoc, limit)
+		}
 
 		// 3. 尝试解析为 Alert 并集成 SOP
 		var alert Alert
@@ -567,12 +584,12 @@ func main() {
 				if thStr := jsonRawToString(alert.Threshold); thStr != "" {
 					alertMap["threshold"] = thStr
 				}
-                var alertJSON []byte
-                if alertPretty {
-                    alertJSON, _ = json.MarshalIndent(alertMap, "", "  ")
-                } else {
-                    alertJSON, _ = json.Marshal(alertMap)
-                }
+				var alertJSON []byte
+				if alertPretty {
+					alertJSON, _ = json.MarshalIndent(alertMap, "", "  ")
+				} else {
+					alertJSON, _ = json.Marshal(alertMap)
+				}
 
 				// 3.3) 组装完整 prompt
 				var b strings.Builder
@@ -728,10 +745,16 @@ func main() {
 		log.Printf("incident: received request - incident_key=%s, sop_id=%s, prompt_len=%d, prompt_sha1=%s",
 			in.IncidentKey, in.SopID, len(in.Prompt), phash)
 
-		// 保存完整的 prompt 到日志（便于调试）
-		log.Printf("=== PROMPT START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
-		log.Printf("%s", in.Prompt)
-		log.Printf("=== PROMPT END ===")
+		// 保存完整的 prompt 到日志（默认关闭；QPROXY_LOG_PAYLOAD=1 时开启，截断 2048B）
+		if getenv("QPROXY_LOG_PAYLOAD", "0") == "1" {
+			pl := in.Prompt
+			if len(pl) > 2048 {
+				pl = pl[:2048] + "\n..."
+			}
+			log.Printf("=== PROMPT START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
+			log.Printf("%s", pl)
+			log.Printf("=== PROMPT END ===")
+		}
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
@@ -744,13 +767,24 @@ func main() {
 		}
 
 		cleanedOut := cleanText(out)
-		log.Printf("incident: processing completed for %s, raw_response_len=%d, cleaned_len=%d",
-			in.IncidentKey, len(out), len(cleanedOut))
+		rsum := sha1.Sum([]byte(cleanedOut))
+		rhash := hex.EncodeToString(rsum[:])
+		if len(rhash) > 12 {
+			rhash = rhash[:12]
+		}
+		log.Printf("incident: processing completed for %s, raw_response_len=%d, cleaned_len=%d, response_sha1=%s",
+			in.IncidentKey, len(out), len(cleanedOut), rhash)
 
-		// 保存完整的 response 到日志（便于调试）
-		log.Printf("=== RESPONSE START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
-		log.Printf("%s", cleanedOut)
-		log.Printf("=== RESPONSE END ===")
+		// 保存完整的 response 到日志（默认关闭；QPROXY_LOG_PAYLOAD=1 时开启，截断 2048B）
+		if getenv("QPROXY_LOG_PAYLOAD", "0") == "1" {
+			ro := cleanedOut
+			if len(ro) > 2048 {
+				ro = ro[:2048] + "\n..."
+			}
+			log.Printf("=== RESPONSE START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
+			log.Printf("%s", ro)
+			log.Printf("=== RESPONSE END ===")
+		}
 
 		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanedOut})
 	})
