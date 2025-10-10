@@ -508,8 +508,16 @@ func main() {
 		}
 		return ""
 	}
-	// buildPrompt 返回 (prompt, incident_key, sop_id, error)
-	buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, string, error) {
+    // buildPrompt 返回 (prompt, incident_key, sop_id, error)
+    buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, string, error) {
+        // 可调预算与格式选项
+        tdBudget := 2048
+        if v := getenv("QPROXY_TASK_DOC_BUDGET", ""); strings.TrimSpace(v) != "" {
+            if n, err := strconv.Atoi(v); err == nil && n > 256 {
+                tdBudget = n
+            }
+        }
+        alertPretty := strings.TrimSpace(getenv("QPROXY_ALERT_JSON_PRETTY", "0")) == "1"
 		// 1. 优先使用外部构建器（保留当前优化的实现）
 		if cmd := getenv("QPROXY_PROMPT_BUILDER_CMD", ""); strings.TrimSpace(cmd) != "" {
 			c := exec.CommandContext(ctx, "bash", "-lc", cmd)
@@ -526,17 +534,17 @@ func main() {
 			return p, "", "", nil // 外部构建器不返回 incident_key 和 sop_id
 		}
 
-		// 2. 加载 task instructions（如果存在）
+        // 2. 加载 task instructions（如果存在）
 		taskPath := filepath.Join(".", "ctx", "task_instructions.md")
-		taskDoc := strings.TrimSpace(readFileSafe(taskPath))
-		if taskDoc != "" {
-			// 限制大小：预算 4096 字节，最小保留 800 字节
-			limit := 4096
-			if limit < 800 {
-				limit = 800
-			}
-			taskDoc = trimToBytesUTF8(taskDoc, limit)
-		}
+        taskDoc := strings.TrimSpace(readFileSafe(taskPath))
+        if taskDoc != "" {
+            // 限制大小：可配置预算，最小保留 800 字节
+            limit := tdBudget
+            if limit < 800 {
+                limit = 800
+            }
+            taskDoc = trimToBytesUTF8(taskDoc, limit)
+        }
 
 		// 3. 尝试解析为 Alert 并集成 SOP
 		var alert Alert
@@ -559,7 +567,12 @@ func main() {
 				if thStr := jsonRawToString(alert.Threshold); thStr != "" {
 					alertMap["threshold"] = thStr
 				}
-				alertJSON, _ := json.MarshalIndent(alertMap, "", "  ")
+                var alertJSON []byte
+                if alertPretty {
+                    alertJSON, _ = json.MarshalIndent(alertMap, "", "  ")
+                } else {
+                    alertJSON, _ = json.Marshal(alertMap)
+                }
 
 				// 3.3) 组装完整 prompt
 				var b strings.Builder
