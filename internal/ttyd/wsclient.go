@@ -159,6 +159,11 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd init read failed: %w", err)
 	}
 
+	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置为长超时
+	// 否则连接会在初始化后很快超时
+	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
+	log.Printf("ttyd: read deadline reset to %v after init", opt.ReadIdleTO)
+
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
 		go c.keepalive()
