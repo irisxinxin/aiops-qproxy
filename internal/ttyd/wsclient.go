@@ -53,11 +53,18 @@ type helloFrame struct {
 	Rows      int    `json:"rows"`
 }
 
-// —— 工具：去 ANSI；宽松提示符 "行尾 > 空格" —— //
+// —— 工具：去 ANSI；宽松提示符检测 —— //
 var reANSI = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
-var rePrompt = regexp.MustCompile(`(?m)>\s$`)
+// 更宽松的提示符检测：去除 ANSI 后，trim 右侧空白，以 > 结尾即可
+var rePrompt = regexp.MustCompile(`>\s*$`)
 
 func stripANSI(b []byte) []byte { return reANSI.ReplaceAll(b, nil) }
+func getTail(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[len(b)-n:])
+}
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	u, err := url.Parse(opt.Endpoint)
@@ -182,15 +189,18 @@ func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte,
 		} // 只关心 OUTPUT
 		clean := stripANSI(data)
 		buf.Write(clean)
-		// 宽松判定：行尾出现 "> "
+		// 宽松判定：去 ANSI 后，以 > 结尾（可选空白）
 		if rePrompt.Match(buf.Bytes()) {
 			sawPrompt = true
 			_ = c.conn.SetReadDeadline(time.Now().Add(1200 * time.Millisecond))
+			log.Printf("ttyd: prompt detected, buf tail (last 200 chars): %q", getTail(buf.Bytes(), 200))
 		}
 		if time.Now().After(hard) {
 			if sawPrompt {
 				return buf.Bytes(), nil
 			}
+			// 超时前打印收到的内容，方便调试
+			log.Printf("ttyd: readUntilPrompt timeout, buf size=%d, tail (last 300 chars): %q", buf.Len(), getTail(buf.Bytes(), 300))
 			return nil, context.DeadlineExceeded
 		}
 	}
