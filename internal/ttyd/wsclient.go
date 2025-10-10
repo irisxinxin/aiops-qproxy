@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+    "os"
 	"net/url"
 	"regexp"
 	"strings"
@@ -52,6 +53,11 @@ type Client struct {
 	readIdle time.Duration
 }
 
+// 调试日志开关：设置 QPROXY_TTYD_DEBUG=1 时开启详细日志
+func ttydDebugEnabled() bool {
+    return strings.ToLower(os.Getenv("QPROXY_TTYD_DEBUG")) == "1"
+}
+
 type helloFrame struct {
 	AuthToken string `json:"AuthToken,omitempty"`
 	Columns   int    `json:"columns"`
@@ -86,16 +92,16 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		KeepAlive: 30 * time.Second,
 	}).DialContext
 
-	log.Printf("ttyd: attempting to connect to %s (NoAuth=%v)", u.String(), opt.NoAuth)
+    if ttydDebugEnabled() { log.Printf("ttyd: attempting to connect to %s (NoAuth=%v)", u.String(), opt.NoAuth) }
 	conn, _, err := d.DialContext(ctx, u.String(), h)
 	if err != nil {
 		log.Printf("ttyd: connection failed: %v", err)
 		return nil, err
 	}
-	log.Printf("ttyd: WebSocket connection established")
+    if ttydDebugEnabled() { log.Printf("ttyd: WebSocket connection established") }
 	// 记录对端关闭事件，便于定位是谁主动断开
-	conn.SetCloseHandler(func(code int, text string) error {
-		log.Printf("ttyd: close from peer (code=%d, text=%q)", code, text)
+    conn.SetCloseHandler(func(code int, text string) error {
+        if ttydDebugEnabled() { log.Printf("ttyd: close from peer (code=%d, text=%q)", code, text) }
 		return nil
 	})
 	c := &Client{
@@ -113,13 +119,13 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	hello := helloFrame{Columns: 120, Rows: 30}
 	// （如果以后需要支持鉴权模式，这里可以根据 opt.NoAuth=false 去附加 AuthToken）
 	b, _ := json.Marshal(&hello)
-	log.Printf("ttyd: sending hello message: %s", string(b))
+    if ttydDebugEnabled() { log.Printf("ttyd: sending hello message: %s", string(b)) }
 	if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
-		log.Printf("ttyd: hello message failed: %v", err)
+        log.Printf("ttyd: hello message failed: %v", err)
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd hello failed: %w", err)
 	}
-	log.Printf("ttyd: hello message sent successfully")
+    if ttydDebugEnabled() { log.Printf("ttyd: hello message sent successfully") }
 
 	// ---- 关键：先"唤醒" Q CLI，再等提示符（避免卡在 MCP 初始化）----
 	// Q CLI 初启会加载多个 MCP 工具，默认要等它们 ready；
@@ -128,24 +134,24 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	if mode == "" {
 		mode = "newline" // 默认使用 newline，避免 Ctrl-C 导致 Q CLI 退出
 	}
-	log.Printf("ttyd: waking Q CLI with mode: %s", mode)
+    if ttydDebugEnabled() { log.Printf("ttyd: waking Q CLI with mode: %s", mode) }
 	switch mode {
 	case "ctrlc":
 		// 发送 Ctrl-C + 回车，立刻进入可交互状态
 		// ttyd 1.7.4 协议：需要加 '0' (INPUT) 类型前缀
 		if err := c.conn.WriteMessage(websocket.TextMessage, []byte{'0', 0x03}); err != nil {
-			log.Printf("ttyd: wake Ctrl-C failed: %v", err)
+            log.Printf("ttyd: wake Ctrl-C failed: %v", err)
 			_ = conn.Close()
 			return nil, fmt.Errorf("ttyd wake failed: %w", err)
 		}
 		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
-			log.Printf("ttyd: wake newline failed: %v", err)
+            log.Printf("ttyd: wake newline failed: %v", err)
 			_ = conn.Close()
 			return nil, fmt.Errorf("ttyd wake failed: %w", err)
 		}
 	case "newline":
 		if err := c.conn.WriteMessage(websocket.TextMessage, []byte("0\r")); err != nil {
-			log.Printf("ttyd: wake newline failed: %v", err)
+            log.Printf("ttyd: wake newline failed: %v", err)
 			_ = conn.Close()
 			return nil, fmt.Errorf("ttyd wake failed: %w", err)
 		}
@@ -153,17 +159,17 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		// 不发送任何唤醒字符
 	}
 
-	log.Printf("ttyd: waiting for initial prompt...")
+    if ttydDebugEnabled() { log.Printf("ttyd: waiting for initial prompt...") }
 	if _, err = c.readUntilPrompt(ctx, opt.ReadIdleTO); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("ttyd init read failed: %w", err)
 	}
 
 	// 不设置 ReadDeadline！让连接永远不会因为超时而断开
-	log.Printf("ttyd: connection established, NO ReadDeadline set (永不超时)")
+    if ttydDebugEnabled() { log.Printf("ttyd: connection established, NO ReadDeadline set (永不超时)") }
 
 	// 不启动 keepalive（本地 ttyd 稳定，无需心跳）
-	log.Printf("ttyd: keepalive disabled by design")
+    if ttydDebugEnabled() { log.Printf("ttyd: keepalive disabled by design") }
 	return c, nil
 }
 
@@ -208,7 +214,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 	var buf bytes.Buffer
 	// 不设置 ReadDeadline！让连接永远不超时
 	// 依赖 context 来控制超时
-	log.Printf("ttyd: starting to read until prompt (NO ReadDeadline)")
+    if ttydDebugEnabled() { log.Printf("ttyd: starting to read until prompt (NO ReadDeadline)") }
 	msgCount := 0
 
 	for {
@@ -235,17 +241,17 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 				if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 					// 检查 > 前一个字符（如果有）不是字母数字
 					if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-						log.Printf("ttyd: prompt detected on timeout after %d messages, buf size: %d", msgCount, buf.Len())
+                if ttydDebugEnabled() { log.Printf("ttyd: prompt detected on timeout after %d messages, buf size: %d", msgCount, buf.Len()) }
 						return buf.String(), nil
 					}
 				}
 			}
 			// 判断是否是对端关闭
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("ttyd: peer closed connection while waiting initial prompt: %v", err)
-			} else {
-				log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
-			}
+            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("ttyd: peer closed connection while waiting initial prompt: %v", err)
+            } else if ttydDebugEnabled() {
+                log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
+            }
 			return "", err
 		}
 		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
@@ -267,7 +273,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 				msgCount++
 			} else {
 				// 其他类型（SET_WINDOW_TITLE 等），忽略
-				log.Printf("ttyd: ignoring message type '%c'", msgType)
+                if ttydDebugEnabled() { log.Printf("ttyd: ignoring message type '%c'", msgType) }
 				continue // 跳过这个消息，继续读下一个
 			}
 		}
@@ -283,7 +289,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
 			// 检查 > 前一个字符（如果有）不是字母数字
 			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-				log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len())
+                if ttydDebugEnabled() { log.Printf("ttyd: prompt detected after %d messages, buf size: %d", msgCount, buf.Len()) }
 				return buf.String(), nil
 			}
 		}
@@ -300,7 +306,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 	msgCount := 0
 	promptCount := 0 // 计数提示符出现次数（第一次是回显，第二次是响应结束）
 
-	log.Printf("ttyd: reading response (NO ReadDeadline, rely on context timeout)")
+    if ttydDebugEnabled() { log.Printf("ttyd: reading response (NO ReadDeadline, rely on context timeout)") }
 
 	for {
 		select {
@@ -328,11 +334,11 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					}
 				}
 			}
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("ttyd: peer closed connection during response read: %v", err)
-			} else {
-				log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
-			}
+            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("ttyd: peer closed connection during response read: %v", err)
+            } else if ttydDebugEnabled() {
+                log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+            }
 			return "", err
 		}
 
@@ -352,10 +358,10 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					content := string(actualContent)
 
 					// 检查是否包含提示符 ">"
-					if strings.Contains(content, ">") {
-						promptCount++
-						log.Printf("ttyd: prompt #%d detected in response", promptCount)
-					}
+                    if strings.Contains(content, ">") {
+                        promptCount++
+                        if ttydDebugEnabled() { log.Printf("ttyd: prompt #%d detected in response", promptCount) }
+                    }
 
 					// 内容检测已移除，不再需要动态调整超时
 
@@ -364,13 +370,13 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					if len(preview) > 100 {
 						preview = preview[:100] + "..."
 					}
-					log.Printf("ttyd: received OUTPUT [%d bytes]: %q", len(actualContent), preview)
+                    if ttydDebugEnabled() { log.Printf("ttyd: received OUTPUT [%d bytes]: %q", len(actualContent), preview) }
 				}
 				msgCount++
-			} else {
-				// 其他类型，忽略
-				log.Printf("ttyd: ignoring message type '%c'", msgType)
-			}
+            } else {
+                // 其他类型，忽略
+                if ttydDebugEnabled() { log.Printf("ttyd: ignoring message type '%c'", msgType) }
+            }
 		}
 
 		// 检查是否收到提示符（只检查末尾 500 字节）
@@ -381,10 +387,10 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
-			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-				log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
-				return buf.String(), nil
-			}
+            if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+                if ttydDebugEnabled() { log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len()) }
+                return buf.String(), nil
+            }
 		}
 	}
 }

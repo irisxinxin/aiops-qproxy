@@ -93,35 +93,35 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 	if p == "" {
 		return "", fmt.Errorf("empty prompt")
 	}
-    out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
-    if err == nil {
-        return out, nil
-    }
-    if IsConnError(err) {
-        // 记录并标记旧连接坏掉，主动关闭后重连一次再重试
-        _ = s.cli.Close()
-        cli, e2 := ttyd.Dial(ctx, ttyd.DialOptions{
-            Endpoint:       s.opts.WSURL,
-            NoAuth:         s.opts.NoAuth,
-            Username:       s.opts.WSUser,
-            Password:       s.opts.WSPass,
-            HandshakeTO:    s.opts.Handshake,
-            ConnectTO:      s.opts.ConnectTO,
-            ReadIdleTO:     s.opts.IdleTO,
-            KeepAlive:      s.opts.KeepAlive,
-            InsecureTLS:    s.opts.InsecureTLS,
-            WakeMode:       s.opts.WakeMode,
-            TokenURL:       s.opts.TokenURL,
-            AuthHeaderName: s.opts.AuthHeaderName,
-            AuthHeaderVal:  s.opts.AuthHeaderVal,
-        })
-        if e2 == nil {
-            s.cli = cli
-            return s.cli.Ask(ctx, p, s.opts.IdleTO)
-        }
-        return "", err
-    }
-    return "", err
+	out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
+	if err == nil {
+		return out, nil
+	}
+	if IsConnError(err) {
+		// 记录并标记旧连接坏掉，主动关闭后重连一次再重试
+		_ = s.cli.Close()
+		cli, e2 := ttyd.Dial(ctx, ttyd.DialOptions{
+			Endpoint:       s.opts.WSURL,
+			NoAuth:         s.opts.NoAuth,
+			Username:       s.opts.WSUser,
+			Password:       s.opts.WSPass,
+			HandshakeTO:    s.opts.Handshake,
+			ConnectTO:      s.opts.ConnectTO,
+			ReadIdleTO:     s.opts.IdleTO,
+			KeepAlive:      s.opts.KeepAlive,
+			InsecureTLS:    s.opts.InsecureTLS,
+			WakeMode:       s.opts.WakeMode,
+			TokenURL:       s.opts.TokenURL,
+			AuthHeaderName: s.opts.AuthHeaderName,
+			AuthHeaderVal:  s.opts.AuthHeaderVal,
+		})
+		if e2 == nil {
+			s.cli = cli
+			return s.cli.Ask(ctx, p, s.opts.IdleTO)
+		}
+		return "", err
+	}
+	return "", err
 }
 
 func (s *Session) Close() error {
@@ -149,11 +149,11 @@ func IsConnError(err error) bool {
 		return false
 	}
 	msg := err.Error()
-    return strings.Contains(msg, "use of closed network connection") ||
-        strings.Contains(msg, "read/write on closed pipe") ||
-        strings.Contains(msg, "broken pipe") ||
-        strings.Contains(msg, "close 1006") ||
-        strings.Contains(msg, "going away")
+	return strings.Contains(msg, "use of closed network connection") ||
+		strings.Contains(msg, "read/write on closed pipe") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "close 1006") ||
+		strings.Contains(msg, "going away")
 }
 
 func quotePath(p string) string {
