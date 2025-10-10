@@ -49,7 +49,8 @@ type Client struct {
 	opt            DialOptions
 	done           chan struct{}
 	keepaliveQuit  chan struct{}
-	keepalivePause chan bool // true=pause, false=resume
+	keepalivePause chan bool       // true=pause, false=resume
+	keepaliveAck   chan struct{}   // keepalive 确认已暂停/恢复
 	pingTicker     *time.Ticker
 	readIdle       time.Duration
 }
@@ -166,7 +167,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
 	if opt.KeepAlive > 0 {
 		c.keepaliveQuit = make(chan struct{})
-		c.keepalivePause = make(chan bool, 1) // buffered，避免阻塞
+		c.keepalivePause = make(chan bool)
+		c.keepaliveAck = make(chan struct{})
 		go c.keepalive(opt.KeepAlive)
 		log.Printf("ttyd: keepalive started (interval: %v)", opt.KeepAlive)
 	}
@@ -403,20 +405,18 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	default:
 	}
 
-	// 暂停 keepalive，避免干扰响应读取
+	// 暂停 keepalive，避免干扰响应读取，并等待确认
 	if c.keepalivePause != nil {
-		select {
-		case c.keepalivePause <- true:
-		default:
-		}
+		c.keepalivePause <- true
+		<-c.keepaliveAck // 等待 keepalive 确认已暂停
+		log.Printf("ttyd: keepalive pause confirmed, starting Ask")
 	}
 	// 确保 Ask 结束后恢复 keepalive
 	defer func() {
 		if c.keepalivePause != nil {
-			select {
-			case c.keepalivePause <- false:
-			default:
-			}
+			c.keepalivePause <- false
+			<-c.keepaliveAck // 等待 keepalive 确认已恢复
+			log.Printf("ttyd: keepalive resume confirmed")
 		}
 	}()
 
@@ -472,6 +472,8 @@ func (c *Client) keepalive(interval time.Duration) {
 			} else {
 				log.Printf("ttyd: keepalive resumed")
 			}
+			// 发送确认信号
+			c.keepaliveAck <- struct{}{}
 			
 		case <-c.keepaliveQuit:
 			log.Printf("ttyd: keepalive stopped")
@@ -483,12 +485,12 @@ func (c *Client) keepalive(interval time.Duration) {
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// 停止 keepalive goroutine
 	if c.keepaliveQuit != nil {
 		close(c.keepaliveQuit)
 	}
-	
+
 	return c.conn.Close()
 }
 
