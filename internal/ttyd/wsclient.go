@@ -162,11 +162,12 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
 	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
 
-	// 移除 keepalive - 不需要了，因为 ReadDeadline 已经是 24h
-	// if opt.KeepAlive > 0 {
-	// 	c.pingTicker = time.NewTicker(opt.KeepAlive)
-	// 	go c.keepalive()
-	// }
+	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
+	if opt.KeepAlive > 0 {
+		c.keepaliveQuit = make(chan struct{})
+		go c.keepalive(opt.KeepAlive)
+		log.Printf("ttyd: keepalive started (interval: %v)", opt.KeepAlive)
+	}
 	return c, nil
 }
 
@@ -421,12 +422,42 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	return response, err
 }
 
-// keepalive 函数已删除 - 不再需要，因为 ReadDeadline 设置为 24h
+// keepalive 定期发送空终端输入以保持 ttyd 连接活跃
+func (c *Client) keepalive(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// 发送空的终端输入（只有类型前缀"0"，没有实际内容）
+			// 这样 ttyd 会认为连接是活跃的，不会因为 idle 而断开
+			c.mu.Lock()
+			err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
+			c.mu.Unlock()
+			
+			if err != nil {
+				log.Printf("ttyd: keepalive write failed: %v", err)
+				return
+			}
+			log.Printf("ttyd: keepalive ping sent")
+			
+		case <-c.keepaliveQuit:
+			log.Printf("ttyd: keepalive stopped")
+			return
+		}
+	}
+}
 
 func (c *Client) Close() error {
-	// keepalive 已删除，直接关闭连接
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	
+	// 停止 keepalive goroutine
+	if c.keepaliveQuit != nil {
+		close(c.keepaliveQuit)
+	}
+	
 	return c.conn.Close()
 }
 
