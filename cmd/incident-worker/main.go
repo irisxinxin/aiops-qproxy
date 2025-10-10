@@ -233,18 +233,29 @@ func buildIncidentKey(a Alert) string {
 		}
 	}
 
-	// 规范化：替换空格和特殊字符为下划线
-	alertName = strings.ReplaceAll(alertName, " ", "_")
-	alertName = strings.ReplaceAll(alertName, "-", "_")
-	alertName = strings.ToLower(alertName)
+	// 规范化函数：替换空格和特殊字符为下划线
+	normalize := func(s string) string {
+		s = strings.ReplaceAll(s, " ", "_")
+		s = strings.ReplaceAll(s, "-", "_")
+		s = strings.ToLower(s)
+		return s
+	}
+
+	// 规范化所有字段
+	service := normalize(a.Service)
+	category := normalize(a.Category)
+	severity := normalize(a.Severity)
+	region := normalize(a.Region)
+	alertName = normalize(alertName)
+	groupID := normalize(a.GroupID)
 
 	// 格式：service_category_severity_region_alertname_groupid
-	parts := []string{a.Service, a.Category, a.Severity, a.Region}
+	parts := []string{service, category, severity, region}
 	if alertName != "" {
 		parts = append(parts, alertName)
 	}
-	if a.GroupID != "" {
-		parts = append(parts, a.GroupID)
+	if groupID != "" {
+		parts = append(parts, groupID)
 	}
 
 	return strings.Join(parts, "_")
@@ -383,7 +394,7 @@ func buildSopContext(a Alert, dir string) string {
 		}
 	}
 	if len(sopIDs) > 0 {
-		b.WriteString("Matched SOP IDs: " + strings.Join(sopIDs, ", ") + "\n\n")
+		b.WriteString("Matched SOP ID: " + strings.Join(sopIDs, ", ") + "\n\n")
 	}
 
 	seen := map[string]bool{}
@@ -560,8 +571,8 @@ func main() {
 		}
 		return ""
 	}
-	// buildPrompt 返回 (prompt, sop_id, error)
-	buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, error) {
+	// buildPrompt 返回 (prompt, incident_key, sop_id, error)
+	buildPrompt := func(ctx context.Context, raw []byte, m map[string]any) (string, string, string, error) {
 		// 1. 优先使用外部构建器（保留当前优化的实现）
 		if cmd := getenv("QPROXY_PROMPT_BUILDER_CMD", ""); strings.TrimSpace(cmd) != "" {
 			c := exec.CommandContext(ctx, "bash", "-lc", cmd)
@@ -569,13 +580,13 @@ func main() {
 			go func() { _, _ = stdin.Write(raw); _ = stdin.Close() }()
 			out, err := c.Output()
 			if err != nil {
-				return "", "", err
+				return "", "", "", err
 			}
 			p := strings.TrimSpace(string(out))
 			if p == "" {
-				return "", "", errors.New("builder returned empty prompt")
+				return "", "", "", errors.New("builder returned empty prompt")
 			}
-			return p, "", nil // 外部构建器不返回 sop_id
+			return p, "", "", nil // 外部构建器不返回 incident_key 和 sop_id
 		}
 
 		// 2. 加载 task instructions（如果存在）
@@ -595,7 +606,10 @@ func main() {
 		if err := json.Unmarshal(raw, &alert); err == nil && alert.Service != "" {
 			// 这是一个完整的 Alert，构建包含 SOP + Task Instructions 的 prompt
 
-			// 3.1) 加载 SOP 并获取 sop_id
+			// 3.1) 生成 incident_key
+			incidentKey := buildIncidentKey(alert)
+
+			// 3.2) 加载 SOP 并获取 sop_id
 			sopText := ""
 			sopID := ""
 			if sopEnabled == "1" {
@@ -634,7 +648,7 @@ func main() {
 					b.WriteString("\n")
 				}
 
-				return b.String(), sopID, nil
+				return b.String(), incidentKey, sopID, nil
 			}
 		}
 
@@ -664,10 +678,10 @@ func main() {
 			b.WriteString(userPrompt)
 			b.WriteString("\n")
 
-			return b.String(), "", nil // 简单 prompt 不返回 sop_id
+			return b.String(), "", "", nil // 简单 prompt 不返回 incident_key 和 sop_id
 		}
 
-		return "", "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or provide Alert JSON or include prompt field)")
+		return "", "", "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or provide Alert JSON or include prompt field)")
 	}
 
 	// 清洗 ANSI/控制字符，避免 spinner/颜色污染响应
@@ -712,12 +726,15 @@ func main() {
 		} else {
 			// 尝试灵活解析
 			if m != nil {
-				if ptxt, sopID, err := buildPrompt(r.Context(), raw, m); err == nil {
+				if ptxt, incidentKey, sopID, err := buildPrompt(r.Context(), raw, m); err == nil {
 					in.Prompt = ptxt
-					in.SopID = sopID  // 设置 sop_id（如果有）
-					// 尝试从 JSON 中提取 incident_key
-					in.IncidentKey = extractIncidentKey(m)
-					// 如果没有提取到且有 sopID，将 sopID 作为 incident_key
+					in.IncidentKey = incidentKey // 使用 buildPrompt 返回的 incident_key
+					in.SopID = sopID             // 设置 sop_id（如果有）
+					// 如果 buildPrompt 没有返回 incident_key，尝试从 JSON 中提取
+					if in.IncidentKey == "" {
+						in.IncidentKey = extractIncidentKey(m)
+					}
+					// 如果还是没有且有 sopID，将 sopID 作为 incident_key
 					if in.IncidentKey == "" && sopID != "" {
 						in.IncidentKey = sopID
 					}
@@ -743,12 +760,13 @@ func main() {
 		}
 
 		// 记录收到的请求
-		promptPreview := in.Prompt
-		if len(promptPreview) > 200 {
-			promptPreview = promptPreview[:200] + "... (truncated)"
-		}
-		log.Printf("incident: received request - incident_key=%s, prompt_len=%d, preview=%q",
-			in.IncidentKey, len(in.Prompt), promptPreview)
+		log.Printf("incident: received request - incident_key=%s, sop_id=%s, prompt_len=%d",
+			in.IncidentKey, in.SopID, len(in.Prompt))
+
+		// 保存完整的 prompt 到日志（便于调试）
+		log.Printf("=== PROMPT START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
+		log.Printf("%s", in.Prompt)
+		log.Printf("=== PROMPT END ===")
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
@@ -760,8 +778,16 @@ func main() {
 			return
 		}
 
-		log.Printf("incident: processing completed for %s, response_len=%d", in.IncidentKey, len(out))
-		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanText(out)})
+		cleanedOut := cleanText(out)
+		log.Printf("incident: processing completed for %s, raw_response_len=%d, cleaned_len=%d",
+			in.IncidentKey, len(out), len(cleanedOut))
+
+		// 保存完整的 response 到日志（便于调试）
+		log.Printf("=== RESPONSE START (incident_key=%s, sop_id=%s) ===", in.IncidentKey, in.SopID)
+		log.Printf("%s", cleanedOut)
+		log.Printf("=== RESPONSE END ===")
+
+		_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanedOut})
 	})
 
 	// 可选开启 pprof（在独立端口上使用 DefaultServeMux）

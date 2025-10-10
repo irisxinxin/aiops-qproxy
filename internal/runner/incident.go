@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -31,7 +32,7 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	// 1) 确定 sop_id
 	var sopID string
 	var err error
-	
+
 	if in.SopID != "" {
 		// 如果已提供 sop_id，直接使用，并更新映射
 		sopID = in.SopID
@@ -46,8 +47,10 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 			return "", err
 		}
 	}
-	
+
 	convPath := o.conv.PathFor(sopID)
+	log.Printf("runner: processing incident_key=%s → sop_id=%s, conv_path=%s",
+		in.IncidentKey, sopID, convPath)
 
 	// 2) lease a session
 	lease, err := o.pool.Acquire(ctx)
