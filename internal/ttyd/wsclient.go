@@ -473,10 +473,13 @@ func (c *Client) keepalive(interval time.Duration) {
 				c.mu.Unlock()
 				
 				if err != nil {
-					log.Printf("ttyd: keepalive ping failed: %v", err)
+					log.Printf("ttyd: keepalive ping failed: %v (connection may be dead, stopping keepalive)", err)
 					return
 				}
-				log.Printf("ttyd: keepalive ping sent (WebSocket Ping)")
+				// 减少日志噪音：只在关键时刻记录
+				if time.Now().Unix()%30 == 0 { // 每 30 秒左右记录一次
+					log.Printf("ttyd: keepalive running (WebSocket Ping sent)")
+				}
 			}
 
 		case pause := <-c.keepalivePause:
