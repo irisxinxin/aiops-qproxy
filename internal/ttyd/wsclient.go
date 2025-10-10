@@ -159,10 +159,11 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd init read failed: %w", err)
 	}
 
-	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置为长超时
-	// 否则连接会在初始化后很快超时
-	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
-	log.Printf("ttyd: read deadline reset to %v after init", opt.ReadIdleTO)
+	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置
+	// 设置为超长超时（24小时），让连接保持活跃
+	// 只要 WebSocket 本身不断，就让它一直开着
+	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
 
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
