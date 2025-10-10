@@ -438,7 +438,12 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 
 	// bash 包装器会在收到输入后通过管道发送给 q chat
 	// q chat 处理完成后自动退出（因为 stdin 关闭）
-	return c.readResponse(ctx, idle)
+	response, err := c.readResponse(ctx, idle)
+
+	// 读取完成后，重置 ReadDeadline 为 24 小时，保持连接活跃
+	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+
+	return response, err
 }
 
 func (c *Client) keepalive() {
