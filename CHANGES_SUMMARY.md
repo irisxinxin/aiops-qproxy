@@ -180,7 +180,7 @@ curl -s http://localhost:8080/readyz
 ```bash
 QPROXY_WS_URL=ws://127.0.0.1:7682/ws
 QPROXY_WS_NOAUTH=1
-QPROXY_WS_POOL=1
+QPROXY_WS_POOL=2
 QPROXY_CONV_ROOT=./conversations
 QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 QPROXY_HTTP_ADDR=:8080

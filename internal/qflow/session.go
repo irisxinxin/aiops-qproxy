@@ -95,7 +95,9 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 	}
 	out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
 	if err == nil {
-		return out, nil
+		// 去除回显的输入与提示符行（仅保留 q 的输出）
+		cleaned := stripPromptEcho(out, p)
+		return cleaned, nil
 	}
 	if IsConnError(err) {
 		// 记录并标记旧连接坏掉，主动关闭后重连一次再重试
@@ -117,11 +119,127 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 		})
 		if e2 == nil {
 			s.cli = cli
-			return s.cli.Ask(ctx, p, s.opts.IdleTO)
+			out2, e3 := s.cli.Ask(ctx, p, s.opts.IdleTO)
+			if e3 != nil {
+				return "", e3
+			}
+			cleaned := stripPromptEcho(out2, p)
+			return cleaned, nil
 		}
 		return "", err
 	}
 	return "", err
+}
+
+// stripPromptEcho 移除回显的用户输入与提示符行，仅保留 q 的输出
+func stripPromptEcho(out, prompt string) string {
+	if strings.TrimSpace(out) == "" {
+		return out
+	}
+	// normalize newlines
+	on := strings.ReplaceAll(out, "\r\n", "\n")
+	on = strings.ReplaceAll(on, "\r", "\n")
+	pn := strings.ReplaceAll(prompt, "\r\n", "\n")
+	pn = strings.ReplaceAll(pn, "\r", "\n")
+
+	// remove exact prompt chunk first
+	on = strings.ReplaceAll(on, pn, "")
+
+	// line-level filtering: drop TUI prefixes and prompt echo lines
+	// decode common unicode escapes to match text
+	on = strings.ReplaceAll(on, "\\u003e", ">")
+	on = strings.ReplaceAll(on, "\\u003c", "<")
+	on = strings.ReplaceAll(on, "\\u0026", "&")
+	on = strings.ReplaceAll(on, "\\u0022", "\"")
+	on = strings.ReplaceAll(on, "\\u0027", "'")
+
+	// build set of prompt lines
+	pset := map[string]struct{}{}
+	for _, pl := range strings.Split(pn, "\n") {
+		pl = strings.TrimSpace(pl)
+		if pl != "" {
+			pset[pl] = struct{}{}
+		}
+	}
+
+	var b strings.Builder
+	lastBlank := false
+	for _, ln := range strings.Split(on, "\n") {
+		t := strings.TrimSpace(ln)
+		if t == "" {
+			if lastBlank {
+				continue
+			}
+			lastBlank = true
+			b.WriteString("\n")
+			continue
+		}
+		lastBlank = false
+		if strings.HasPrefix(t, ">") || strings.HasPrefix(t, "!>") {
+			// drop TUI prompt lines like "> " or "!> "
+			continue
+		}
+		if _, ok := pset[t]; ok {
+			// drop echoed prompt line
+			continue
+		}
+		b.WriteString(ln)
+		b.WriteString("\n")
+	}
+	cleaned := strings.TrimSpace(b.String())
+
+	// If output contains a JSON object, keep only the first full JSON block.
+	if js, ok := extractFirstJSON(cleaned); ok {
+		return strings.TrimSpace(js)
+	}
+	return cleaned
+}
+
+// extractFirstJSON scans a string and returns the first complete JSON object.
+func extractFirstJSON(s string) (string, bool) {
+	type st struct {
+		inStr, esc   bool
+		depth, start int
+	}
+	runes := []rune(s)
+	var state st
+	state.start = -1
+	for i, r := range runes {
+		if state.inStr {
+			if state.esc {
+				state.esc = false
+				continue
+			}
+			if r == '\\' {
+				state.esc = true
+				continue
+			}
+			if r == '"' {
+				state.inStr = false
+			}
+			continue
+		}
+		if r == '"' {
+			state.inStr = true
+			continue
+		}
+		if r == '{' {
+			if state.depth == 0 {
+				state.start = i
+			}
+			state.depth++
+			continue
+		}
+		if r == '}' {
+			if state.depth > 0 {
+				state.depth--
+				if state.depth == 0 && state.start >= 0 {
+					return string(runes[state.start : i+1]), true
+				}
+			}
+		}
+	}
+	return "", false
 }
 
 func (s *Session) Close() error {

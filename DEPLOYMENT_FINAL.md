@@ -214,7 +214,7 @@ curl -s http://localhost:7682/
 当前配置（在 `deploy-real-q.sh` 中）：
 ```bash
 QPROXY_WS_URL=ws://127.0.0.1:7682/ws
-QPROXY_WS_POOL=1
+QPROXY_WS_POOL=2
 QPROXY_WS_NOAUTH=1
 QPROXY_WS_INSECURE_TLS=0
 QPROXY_Q_WAKE=newline

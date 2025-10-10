@@ -396,7 +396,7 @@ func main() {
 	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
 	user := getenv("QPROXY_WS_USER", "")
 	pass := getenv("QPROXY_WS_PASS", "")
-    nStr := getenv("QPROXY_WS_POOL", "2")
+	nStr := getenv("QPROXY_WS_POOL", "2")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
 	sopDir := getenv("QPROXY_SOP_DIR", "./ctx/sop") // SOP 目录
@@ -626,11 +626,21 @@ func main() {
 	osc := regexp.MustCompile(`\x1b\][^\a]*\x07`)
 	ctrl := regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`)     // 保留\t\n\r
 	spinner := regexp.MustCompile(`[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*Thinking\.\.\.`) // 清除 spinner 动画
+	// 与旧 HTTP runner 对齐：去除 TUI 前缀（>、!>、\x1b[0m 等）
+	tuiPrefixRE := regexp.MustCompile(`(?m)^(>|!>|\s*\x1b\[0m)+\s*`)
 	cleanText := func(s string) string {
 		s = csi.ReplaceAllString(s, "")
 		s = osc.ReplaceAllString(s, "")
 		s = ctrl.ReplaceAllString(s, "")
 		s = spinner.ReplaceAllString(s, "") // 移除 spinner
+		// 解码常见的 JSON unicode 转义（与旧 HTTP runner 对齐）
+		s = strings.ReplaceAll(s, "\\u003e", ">")
+		s = strings.ReplaceAll(s, "\\u003c", "<")
+		s = strings.ReplaceAll(s, "\\u0026", "&")
+		s = strings.ReplaceAll(s, "\\u0022", "\"")
+		s = strings.ReplaceAll(s, "\\u0027", "'")
+		// 去除每行开头的 TUI 前缀
+		s = tuiPrefixRE.ReplaceAllString(s, "")
 		// 归一化换行
 		s = strings.ReplaceAll(s, "\r\n", "\n")
 		s = strings.ReplaceAll(s, "\r", "\n")

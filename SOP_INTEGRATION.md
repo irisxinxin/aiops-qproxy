@@ -94,7 +94,7 @@ QPROXY_SOP_ENABLED=1               # 是否启用 SOP（1=启用，0=禁用）
 ```bash
 export QPROXY_WS_URL=ws://127.0.0.1:7682/ws
 export QPROXY_WS_NOAUTH=1
-export QPROXY_WS_POOL=1
+export QPROXY_WS_POOL=2
 export QPROXY_CONV_ROOT=./conversations
 export QPROXY_SOPMAP_PATH=./conversations/_sopmap.json
 export QPROXY_HTTP_ADDR=:8080

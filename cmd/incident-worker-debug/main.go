@@ -31,7 +31,7 @@ func main() {
 	wsURL := getenv("QPROXY_WS_URL", "http://127.0.0.1:7682/ws")
 	user := getenv("QPROXY_WS_USER", "demo")
 	pass := getenv("QPROXY_WS_PASS", "password123")
-	nStr := getenv("QPROXY_WS_POOL", "1")
+	nStr := getenv("QPROXY_WS_POOL", "2")
 	root := getenv("QPROXY_CONV_ROOT", "./conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
 
