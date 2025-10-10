@@ -465,17 +465,18 @@ func (c *Client) keepalive(interval time.Duration) {
 		select {
 		case <-ticker.C:
 			if !paused {
-				// 发送空的终端输入（只有类型前缀"0"，没有实际内容）
-				// 这样 ttyd 会认为连接是活跃的，不会因为 idle 而断开
+				// 发送 WebSocket Ping 帧以保持连接活跃
+				// libwebsockets 检测 Ping/Pong 作为活跃度判断
 				c.mu.Lock()
-				err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
+				deadline := time.Now().Add(5 * time.Second)
+				err := c.conn.WriteControl(websocket.PingMessage, []byte("keepalive"), deadline)
 				c.mu.Unlock()
-
+				
 				if err != nil {
-					log.Printf("ttyd: keepalive write failed: %v", err)
+					log.Printf("ttyd: keepalive ping failed: %v", err)
 					return
 				}
-				log.Printf("ttyd: keepalive ping sent")
+				log.Printf("ttyd: keepalive ping sent (WebSocket Ping)")
 			}
 
 		case pause := <-c.keepalivePause:
