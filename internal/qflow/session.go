@@ -22,6 +22,7 @@ type Opts struct {
 	Handshake   time.Duration
 	InsecureTLS bool
 	ConnectTO   time.Duration
+	KeepAlive   time.Duration // WebSocket ping 间隔，防止空闲连接被关闭
 	NoAuth      bool
 	WakeMode    string // 唤醒 Q CLI 的方式: ctrlc/newline/none
 	// auth/hello extras
@@ -39,6 +40,7 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 		HandshakeTO:    o.Handshake,
 		ConnectTO:      o.ConnectTO,
 		ReadIdleTO:     o.IdleTO,
+		KeepAlive:      o.KeepAlive,
 		InsecureTLS:    o.InsecureTLS,
 		WakeMode:       o.WakeMode,
 		TokenURL:       o.TokenURL,
@@ -106,6 +108,7 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 			HandshakeTO:    s.opts.Handshake,
 			ConnectTO:      s.opts.ConnectTO,
 			ReadIdleTO:     s.opts.IdleTO,
+			KeepAlive:      s.opts.KeepAlive,
 			InsecureTLS:    s.opts.InsecureTLS,
 			WakeMode:       s.opts.WakeMode,
 			TokenURL:       s.opts.TokenURL,

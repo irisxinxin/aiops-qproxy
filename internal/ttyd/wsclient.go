@@ -166,6 +166,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	_ = c.conn.SetReadDeadline(deadline24h)
 	log.Printf("ttyd: read deadline reset to 24h after init (deadline=%v)", deadline24h.Format("2006-01-02 15:04:05"))
 
+
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
 		go c.keepalive()
@@ -179,7 +180,11 @@ func (c *Client) SendLine(line string) error {
 	// ttyd 1.7.4 协议：客户端输入需要以 "0" (INPUT 类型) 开头
 	// 格式: "0" + 实际输入内容 + "\r" (回车符，触发 Q CLI 执行)
 	msg := "0" + line + "\r"
-	return c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	err := c.conn.WriteMessage(websocket.TextMessage, []byte(msg))
+	if err != nil {
+		log.Printf("ttyd: SendLine failed (len=%d): %v", len(msg), err)
+	}
+	return err
 }
 
 // 发送 Ctrl-C
@@ -454,8 +459,12 @@ func (c *Client) keepalive() {
 			return
 		case <-c.pingTicker.C:
 			c.mu.Lock()
-			_ = c.conn.WriteControl(websocket.PingMessage, []byte("k"), time.Now().Add(5*time.Second))
+			err := c.conn.WriteControl(websocket.PingMessage, []byte("k"), time.Now().Add(5*time.Second))
 			c.mu.Unlock()
+			if err != nil {
+				log.Printf("ttyd: keepalive ping failed: %v (connection may be dead)", err)
+				return
+			}
 		}
 	}
 }
