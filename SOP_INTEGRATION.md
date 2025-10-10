@@ -134,7 +134,7 @@ curl -X POST http://localhost:8080/incident \
 4. 将 SOP 内容添加到 prompt 中
 5. 发送给 Q CLI 进行分析
 
-### 方式 2：简单 Prompt（不触发 SOP）
+### 方式 2：简单 Prompt（也包含 Task Instructions）
 
 ```bash
 curl -X POST http://localhost:8080/incident \
@@ -146,9 +146,10 @@ curl -X POST http://localhost:8080/incident \
 ```
 
 **效果**：
-- 直接提取 `prompt` 字段
-- 不加载 SOP
-- 适用于简单问答
+- 提取 `prompt` 字段
+- 自动加载 `ctx/task_instructions.md`
+- 构建标准格式的 prompt
+- 适用于简单问答（也包含任务指令上下文）
 
 ### 方式 3：使用外部 Prompt 构建器（保留优化）
 
@@ -187,24 +188,34 @@ cd ~/huixin/aiops/aiops-qproxy-v2.4
 ## 📊 Prompt 生成优先级
 
 ```
-1. QPROXY_PROMPT_BUILDER_CMD（外部构建器）
+1. QPROXY_PROMPT_BUILDER_CMD（外部构建器 - 最高优先级）
    ↓
-2. Alert JSON + SOP（如果 QPROXY_SOP_ENABLED=1）
+2. Alert JSON + Task Instructions + SOP（完整版本）
    ↓
-3. 简单 Prompt 提取（JSON 中的 prompt 字段）
+3. Simple Prompt + Task Instructions（回退版本）
 ```
+
+**注意**：所有模式都会包含 `ctx/task_instructions.md` 的内容（如果存在）
 
 ---
 
 ## 🔍 生成的 Prompt 格式
 
-### 包含 SOP 的 Prompt 示例
+### 包含完整上下文的 Prompt 示例
 
 ```
 You are an AIOps root-cause assistant.
-Analyze the alert below and provide actionable remediation steps.
+This is a SINGLE-TURN request. All data is COMPLETE below.
+DO NOT ask me to continue. Start now and return ONLY the final result.
 
-## ALERT JSON
+## TASK INSTRUCTIONS (verbatim)
+[ctx/task_instructions.md 的内容]
+- Your role as an AIOps assistant
+- Output format requirements
+- Analysis methodology
+...
+
+## ALERT JSON (complete)
 {
   "service": "omada",
   "category": "cpu",
@@ -221,6 +232,18 @@ Analyze the alert below and provide actionable remediation steps.
 - FixAction: Restart omada service if CPU usage > 95%
 ```
 
+### 简单 Prompt 示例
+
+```
+You are an AIOps assistant.
+## TASK INSTRUCTIONS
+[ctx/task_instructions.md 的内容]
+...
+
+## USER QUERY
+What is 2+2?
+```
+
 ---
 
 ## 🎨 对比旧版本
@@ -232,11 +255,12 @@ Analyze the alert below and provide actionable remediation steps.
 - ❌ 每次请求都启动新的 Q CLI 进程
 
 ### 新 WebSocket 版本 (`cmd/incident-worker/main.go`)
-- ✅ 完整的 SOP 集成（新增）
-- ❌ 无任务指令（按当前优化的 buildPrompt 实现）
+- ✅ 完整的 SOP 集成
+- ✅ 任务指令加载（task_instructions.md）
 - ❌ 无历史上下文（使用会话持久化代替）
 - ✅ 复用 Q CLI 连接池
 - ✅ 保留外部 prompt 构建器支持
+- ✅ 所有 prompt 都包含 Task Instructions
 
 ---
 

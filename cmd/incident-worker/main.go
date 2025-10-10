@@ -47,13 +47,13 @@ type Alert struct {
 }
 
 type SopLine struct {
-	Keys      []string `json:"keys"`        // 匹配条件: svc:omada cat:cpu
-	Priority  string   `json:"priority"`    // HIGH/MIDDLE/LOW
-	Command   []string `json:"command"`     // 诊断命令列表
-	Metric    []string `json:"metric"`      // 需要检查的指标
-	Log       []string `json:"log"`         // 需要检查的日志
-	Parameter []string `json:"parameter"`   // 需要检查的参数
-	FixAction []string `json:"fix_action"`  // 修复操作
+	Keys      []string `json:"keys"`       // 匹配条件: svc:omada cat:cpu
+	Priority  string   `json:"priority"`   // HIGH/MIDDLE/LOW
+	Command   []string `json:"command"`    // 诊断命令列表
+	Metric    []string `json:"metric"`     // 需要检查的指标
+	Log       []string `json:"log"`        // 需要检查的日志
+	Parameter []string `json:"parameter"`  // 需要检查的参数
+	FixAction []string `json:"fix_action"` // 修复操作
 }
 
 func jsonRawToString(raw json.RawMessage) string {
@@ -273,6 +273,31 @@ func buildSopContext(a Alert, dir string) string {
 	return b.String()
 }
 
+func readFileSafe(path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func trimToBytesUTF8(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	// 简单截断到 maxBytes，避免切断 UTF-8 字符
+	b := []byte(s)
+	if len(b) <= maxBytes {
+		return s
+	}
+	// 回退到有效的 UTF-8 边界
+	cut := maxBytes
+	for cut > 0 && (b[cut]&0xC0) == 0x80 {
+		cut--
+	}
+	return string(b[:cut]) + "\n..."
+}
+
 func main() {
 	// 默认裸跑直连 localhost
 	wsURL := getenv("QPROXY_WS_URL", "ws://127.0.0.1:7682/ws")
@@ -281,8 +306,8 @@ func main() {
 	nStr := getenv("QPROXY_WS_POOL", "3")
 	root := getenv("QPROXY_CONV_ROOT", "/tmp/conversations")
 	mpath := getenv("QPROXY_SOPMAP_PATH", root+"/_sopmap.json")
-	sopDir := getenv("QPROXY_SOP_DIR", "./ctx/sop")      // SOP 目录
-	sopEnabled := getenv("QPROXY_SOP_ENABLED", "1")      // 是否启用 SOP
+	sopDir := getenv("QPROXY_SOP_DIR", "./ctx/sop") // SOP 目录
+	sopEnabled := getenv("QPROXY_SOP_ENABLED", "1") // 是否启用 SOP
 	authHeaderName := getenv("QPROXY_WS_AUTH_HEADER_NAME", "")
 	authHeaderVal := getenv("QPROXY_WS_AUTH_HEADER_VAL", "")
 	tokenURL := getenv("QPROXY_WS_TOKEN_URL", "")
@@ -406,51 +431,95 @@ func main() {
 			return p, nil
 		}
 		
-		// 2. 尝试解析为 Alert 并集成 SOP（新增）
-		if sopEnabled == "1" {
-			var alert Alert
-			if err := json.Unmarshal(raw, &alert); err == nil && alert.Service != "" {
-				// 这是一个完整的 Alert，构建包含 SOP 的 prompt
+		// 2. 加载 task instructions（如果存在）
+		taskPath := filepath.Join(".", "ctx", "task_instructions.md")
+		taskDoc := strings.TrimSpace(readFileSafe(taskPath))
+		if taskDoc != "" {
+			// 限制大小：预算 4096 字节，最小保留 800 字节
+			limit := 4096
+			if limit < 800 {
+				limit = 800
+			}
+			taskDoc = trimToBytesUTF8(taskDoc, limit)
+		}
+		
+		// 3. 尝试解析为 Alert 并集成 SOP
+		var alert Alert
+		if err := json.Unmarshal(raw, &alert); err == nil && alert.Service != "" {
+			// 这是一个完整的 Alert，构建包含 SOP + Task Instructions 的 prompt
+			
+			// 3.1) 加载 SOP
+			sopText := ""
+			if sopEnabled == "1" {
+				sopText = buildSopContext(alert, sopDir)
+			}
+			
+			// 3.2) 规范化 Alert JSON
+			alertMap := make(map[string]any)
+			if err := json.Unmarshal(raw, &alertMap); err == nil {
+				if thStr := jsonRawToString(alert.Threshold); thStr != "" {
+					alertMap["threshold"] = thStr
+				}
+				alertJSON, _ := json.MarshalIndent(alertMap, "", "  ")
 				
-				// 2.1) 加载 SOP
-				sopText := buildSopContext(alert, sopDir)
+				// 3.3) 组装完整 prompt
+				var b strings.Builder
+				b.WriteString("You are an AIOps root-cause assistant.\n")
+				b.WriteString("This is a SINGLE-TURN request. All data is COMPLETE below.\n")
+				b.WriteString("DO NOT ask me to continue. Start now and return ONLY the final result.\n\n")
 				
-				// 2.2) 规范化 Alert JSON
-				alertMap := make(map[string]any)
-				if err := json.Unmarshal(raw, &alertMap); err == nil {
-					if thStr := jsonRawToString(alert.Threshold); thStr != "" {
-						alertMap["threshold"] = thStr
-					}
-					alertJSON, _ := json.MarshalIndent(alertMap, "", "  ")
-					
-					// 2.3) 组装 prompt
-					var b strings.Builder
-					b.WriteString("You are an AIOps root-cause assistant.\n")
-					b.WriteString("Analyze the alert below and provide actionable remediation steps.\n\n")
-					
-					b.WriteString("## ALERT JSON\n")
-					b.WriteString(string(alertJSON))
+				// Task Instructions
+				if taskDoc != "" {
+					b.WriteString("## TASK INSTRUCTIONS (verbatim)\n")
+					b.WriteString(taskDoc)
 					b.WriteString("\n\n")
-					
-					if sopText != "" {
-						b.WriteString(sopText)
-						b.WriteString("\n")
-					}
-					
-					return b.String(), nil
+				}
+				
+				// Alert JSON
+				b.WriteString("## ALERT JSON (complete)\n")
+				b.WriteString(string(alertJSON))
+				b.WriteString("\n\n")
+				
+				// SOP
+				if sopText != "" {
+					b.WriteString(sopText)
+					b.WriteString("\n")
+				}
+				
+				return b.String(), nil
+			}
+		}
+		
+		// 4. 回退：从 JSON 提取 prompt 字段，也构建完整版本
+		var userPrompt string
+		if m != nil {
+			for _, pth := range []string{"prompt", "inputs.prompt", "data.prompt", "params.prompt"} {
+				if s, ok := digStr(m, pth); ok {
+					userPrompt = s
+					break
 				}
 			}
 		}
 		
-		// 3. 回退到简单的 prompt 提取（保留原有逻辑）
-		if m != nil {
-			for _, pth := range []string{"prompt", "inputs.prompt", "data.prompt", "params.prompt"} {
-				if s, ok := digStr(m, pth); ok {
-					return s, nil
-				}
+		if userPrompt != "" {
+			// 即使是简单 prompt，也加上 task instructions 和标准格式
+			var b strings.Builder
+			b.WriteString("You are an AIOps assistant.\n")
+			
+			if taskDoc != "" {
+				b.WriteString("## TASK INSTRUCTIONS\n")
+				b.WriteString(taskDoc)
+				b.WriteString("\n\n")
 			}
+			
+			b.WriteString("## USER QUERY\n")
+			b.WriteString(userPrompt)
+			b.WriteString("\n")
+			
+			return b.String(), nil
 		}
-		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or include prompt or provide valid Alert JSON)")
+		
+		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or provide Alert JSON or include prompt field)")
 	}
 
 	// 清洗 ANSI/控制字符，避免 spinner/颜色污染响应

@@ -13,12 +13,12 @@ curl -X POST http://localhost:8080/incident \
 echo ""
 echo ""
 
-# 测试 2: 简单 prompt（不应该触发 SOP）
-echo "测试 2: 简单 prompt (无 SOP)"
+# 测试 2: 简单 prompt（也会包含 task instructions）
+echo "测试 2: 简单 prompt (包含 Task Instructions)"
 echo "======================================"
 curl -X POST http://localhost:8080/incident \
   -H "Content-Type: application/json" \
-  -d '{"incident_key":"test-no-sop","prompt":"What is 2+2?"}' \
+  -d '{"incident_key":"test-simple-prompt","prompt":"What is 2+2?"}' \
   2>/dev/null | jq -r '.answer'
 echo ""
 echo ""
