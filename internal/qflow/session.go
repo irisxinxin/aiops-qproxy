@@ -152,7 +152,7 @@ func IsConnError(err error) bool {
 	return strings.Contains(msg, "use of closed network connection") ||
 		strings.Contains(msg, "read/write on closed pipe") ||
 		strings.Contains(msg, "broken pipe") ||
-        strings.Contains(msg, "connection reset by peer") ||
+		strings.Contains(msg, "connection reset by peer") ||
 		strings.Contains(msg, "close 1006") ||
 		strings.Contains(msg, "going away")
 }
