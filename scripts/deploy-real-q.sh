@@ -82,10 +82,10 @@ fi
 echo "🔌 启动真实 ttyd + Q CLI (NoAuth 模式)..."
 # 关闭颜色/动效并开启 Q 自动信任，避免 TUI 控制序列
 # 注意：env 变量要在 ttyd 前设置，避免被当作命令回显
-# -t 0: 禁用 idle timeout，避免 ttyd 自动断开连接
+# -t timeout=0: 禁用客户端 idle timeout，避免 ttyd 自动断开连接
 nohup env TERM=dumb NO_COLOR=1 CLICOLOR=0 \
   Q_MCP_AUTO_TRUST=true Q_MCP_SKIP_TRUST_PROMPTS=true Q_TOOLS_AUTO_TRUST=true \
-  ttyd -W -t 0 -p 7682 q chat --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
+  ttyd -W -t timeout=0 -p 7682 q chat --trust-all-tools > ./logs/ttyd-q.log 2>&1 &
 TTYD_PID=$!
 echo $TTYD_PID > ./logs/ttyd-q.pid
 echo "ttyd PID: $TTYD_PID"
