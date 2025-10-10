@@ -425,13 +425,19 @@ func (c *Client) keepalive() {
 	for {
 		select {
 		case <-c.keepaliveQuit:
+			log.Printf("ttyd: keepalive goroutine stopped")
 			return
 		case <-c.pingTicker.C:
 			c.mu.Lock()
 			// 发送一个空的终端输入（'0' + 空字符串）来保持 ttyd 认为连接活跃
 			// 单独的 WebSocket Ping 可能不够，ttyd 可能期望终端层面的输入
-			_ = c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
+			err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
 			c.mu.Unlock()
+			if err != nil {
+				log.Printf("ttyd: keepalive write failed: %v - stopping keepalive", err)
+				return
+			}
+			log.Printf("ttyd: keepalive sent empty input '0'")
 		}
 	}
 }
