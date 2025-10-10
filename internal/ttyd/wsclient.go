@@ -162,10 +162,11 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
 	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
 
-	if opt.KeepAlive > 0 {
-		c.pingTicker = time.NewTicker(opt.KeepAlive)
-		go c.keepalive()
-	}
+	// 移除 keepalive - 不需要了，因为 ReadDeadline 已经是 24h
+	// if opt.KeepAlive > 0 {
+	// 	c.pingTicker = time.NewTicker(opt.KeepAlive)
+	// 	go c.keepalive()
+	// }
 	return c, nil
 }
 
@@ -421,38 +422,10 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	return response, err
 }
 
-func (c *Client) keepalive() {
-	for {
-		select {
-		case <-c.keepaliveQuit:
-			log.Printf("ttyd: keepalive goroutine stopped")
-			return
-		case <-c.pingTicker.C:
-			c.mu.Lock()
-			// 发送一个空的终端输入（'0' + 空字符串）来保持 ttyd 认为连接活跃
-			// 单独的 WebSocket Ping 可能不够，ttyd 可能期望终端层面的输入
-			err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
-			c.mu.Unlock()
-			if err != nil {
-				log.Printf("ttyd: keepalive write failed: %v - stopping keepalive", err)
-				return
-			}
-			log.Printf("ttyd: keepalive sent empty input '0'")
-		}
-	}
-}
+// keepalive 函数已删除 - 不再需要，因为 ReadDeadline 设置为 24h
 
 func (c *Client) Close() error {
-	// 安全关闭 keepalive goroutine
-	select {
-	case <-c.keepaliveQuit:
-		// 已经关闭
-	default:
-		close(c.keepaliveQuit)
-	}
-	if c.pingTicker != nil {
-		c.pingTicker.Stop()
-	}
+	// keepalive 已删除，直接关闭连接
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn.Close()
