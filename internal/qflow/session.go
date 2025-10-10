@@ -56,7 +56,11 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 
 // Slash commands
 func (s *Session) Load(path string) error {
-	_, e := s.cli.Ask(context.Background(), "/load "+quotePath(path), s.opts.IdleTO)
+	// 管理类命令使用更短超时
+	const mgmtTO = time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
+	defer cancel()
+	_, e := s.cli.Ask(ctx, "/load "+quotePath(path), mgmtTO)
 	return e
 }
 func (s *Session) Save(path string, force bool) error {
@@ -64,35 +68,39 @@ func (s *Session) Save(path string, force bool) error {
 	if force {
 		cmd += " -f"
 	}
-	// 使用带超时的 context，避免 /save 卡住
-	ctx, cancel := context.WithTimeout(context.Background(), s.opts.IdleTO)
+	// 使用更短的管理命令超时
+	const mgmtTO = time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
 	defer cancel()
-	_, err := s.cli.Ask(ctx, cmd, s.opts.IdleTO)
+	_, err := s.cli.Ask(ctx, cmd, mgmtTO)
 	return err
 }
 func (s *Session) Compact() error {
-	ctx, cancel := context.WithTimeout(context.Background(), s.opts.IdleTO)
+	const mgmtTO = time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
 	defer cancel()
-	_, err := s.cli.Ask(ctx, "/compact", s.opts.IdleTO)
+	_, err := s.cli.Ask(ctx, "/compact", mgmtTO)
 	return err
 }
 func (s *Session) Clear() error {
 	return s.ClearWithContext(context.Background())
 }
 func (s *Session) ClearWithContext(ctx context.Context) error {
-    // 明确的超时包裹，避免卡死（/clear 属于管理命令，缩短等待）
-    cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	// 管理命令短超时（广泛应用）
+	const mgmtTO = time.Second
+	cctx, cancel := context.WithTimeout(ctx, mgmtTO)
 	defer cancel()
-    _, err := s.cli.Ask(cctx, "/clear", 2*time.Second)
+	_, err := s.cli.Ask(cctx, "/clear", mgmtTO)
 	return err
 }
 func (s *Session) ContextClear() error {
 	return s.ContextClearWithContext(context.Background())
 }
 func (s *Session) ContextClearWithContext(ctx context.Context) error {
-	cctx, cancel := context.WithTimeout(ctx, s.opts.IdleTO)
+	const mgmtTO = time.Second
+	cctx, cancel := context.WithTimeout(ctx, mgmtTO)
 	defer cancel()
-	_, err := s.cli.Ask(cctx, "/context clear", s.opts.IdleTO)
+	_, err := s.cli.Ask(cctx, "/context clear", mgmtTO)
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {

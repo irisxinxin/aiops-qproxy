@@ -412,7 +412,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 			}
 		}
 
-    // 检查是否收到提示符（只检查末尾 500 字节）
+		// 检查是否收到提示符（只检查末尾 500 字节）
 		tail := buf.Bytes()
 		if len(tail) > 500 {
 			tail = tail[len(tail)-500:]
@@ -420,13 +420,13 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 		cleaned := ansiRegex.ReplaceAllString(string(tail), "")
 		cleaned = strings.TrimRight(cleaned, " \r\n\t")
 		if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
-            if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
-                if ttydDebugEnabled() {
-                    log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
-                }
-                // /clear 这类管理命令可能什么都不回，仅出现提示符；快速返回
-                return buf.String(), nil
-            }
+			if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+				if ttydDebugEnabled() {
+					log.Printf("ttyd: response complete after %d messages, buf size: %d", msgCount, buf.Len())
+				}
+				// /clear 这类管理命令可能什么都不回，仅出现提示符；快速返回
+				return buf.String(), nil
+			}
 		}
 	}
 }
