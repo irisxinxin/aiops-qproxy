@@ -232,12 +232,12 @@ func buildIncidentKey(a Alert) string {
 			}
 		}
 	}
-	
+
 	// 规范化：替换空格和特殊字符为下划线
 	alertName = strings.ReplaceAll(alertName, " ", "_")
 	alertName = strings.ReplaceAll(alertName, "-", "_")
 	alertName = strings.ToLower(alertName)
-	
+
 	// 格式：service_category_severity_region_alertname_groupid
 	parts := []string{a.Service, a.Category, a.Severity, a.Region}
 	if alertName != "" {
@@ -246,7 +246,7 @@ func buildIncidentKey(a Alert) string {
 	if a.GroupID != "" {
 		parts = append(parts, a.GroupID)
 	}
-	
+
 	return strings.Join(parts, "_")
 }
 
@@ -255,20 +255,20 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 	if strings.TrimSpace(dir) == "" {
 		return "", ""
 	}
-	
+
 	// 生成 incident_key
 	incidentKey := buildIncidentKey(a)
-	
+
 	// 通过 SHA1 生成 sop_id
 	h := sha1.Sum([]byte(incidentKey))
 	expectedSopID := "sop_" + hex.EncodeToString(h[:])[:12]
-	
+
 	// 加载所有 SOP
 	lines, err := collectSopLines(dir)
 	if err != nil || len(lines) == 0 {
 		return "", ""
 	}
-	
+
 	// 优先通过 sop_id 精确匹配
 	var matchedSop *SopLine
 	for i := range lines {
@@ -277,7 +277,7 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 			break
 		}
 	}
-	
+
 	// 如果没有精确匹配，则通过 keys 模糊匹配
 	if matchedSop == nil {
 		var hit []SopLine
@@ -298,14 +298,14 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 		})
 		matchedSop = &hit[0]
 	}
-	
+
 	// 使用匹配到的 SOP 的 sop_id（如果有的话）
 	finalSopID := matchedSop.SopID
 	if finalSopID == "" {
 		// 如果 SOP 没有 sop_id，使用生成的
 		finalSopID = expectedSopID
 	}
-	
+
 	// 构建 SOP 内容
 	var b strings.Builder
 	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
@@ -314,7 +314,7 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 		b.WriteString(fmt.Sprintf("Incident Key: %s\n", matchedSop.IncidentKey))
 	}
 	b.WriteString("\n")
-	
+
 	seen := map[string]bool{}
 	appendList := func(prefix string, arr []string, limit int) {
 		cnt := 0
@@ -336,13 +336,13 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 			}
 		}
 	}
-	
+
 	appendList("Command", matchedSop.Command, 5)
 	appendList("Metric", matchedSop.Metric, 5)
 	appendList("Log", matchedSop.Log, 3)
 	appendList("Parameter", matchedSop.Parameter, 3)
 	appendList("FixAction", matchedSop.FixAction, 3)
-	
+
 	return b.String(), finalSopID
 }
 
@@ -575,7 +575,7 @@ func main() {
 			if p == "" {
 				return "", "", errors.New("builder returned empty prompt")
 			}
-			return p, "", nil  // 外部构建器不返回 sop_id
+			return p, "", nil // 外部构建器不返回 sop_id
 		}
 
 		// 2. 加载 task instructions（如果存在）
@@ -664,7 +664,7 @@ func main() {
 			b.WriteString(userPrompt)
 			b.WriteString("\n")
 
-			return b.String(), "", nil  // 简单 prompt 不返回 sop_id
+			return b.String(), "", nil // 简单 prompt 不返回 sop_id
 		}
 
 		return "", "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or provide Alert JSON or include prompt field)")
@@ -714,11 +714,12 @@ func main() {
 			if m != nil {
 				if ptxt, sopID, err := buildPrompt(r.Context(), raw, m); err == nil {
 					in.Prompt = ptxt
-					// 优先使用 sop_id 作为 incident_key
-					if sopID != "" {
+					in.SopID = sopID  // 设置 sop_id（如果有）
+					// 尝试从 JSON 中提取 incident_key
+					in.IncidentKey = extractIncidentKey(m)
+					// 如果没有提取到且有 sopID，将 sopID 作为 incident_key
+					if in.IncidentKey == "" && sopID != "" {
 						in.IncidentKey = sopID
-					} else {
-						in.IncidentKey = extractIncidentKey(m)
 					}
 				}
 			}

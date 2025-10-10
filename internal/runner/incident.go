@@ -22,16 +22,31 @@ func NewOrchestrator(p *pool.Pool, m *store.SOPMap, cs *store.ConvStore) *Orches
 }
 
 type IncidentInput struct {
-	IncidentKey string `json:"incident_key"`
+	IncidentKey string `json:"incident_key"` // 原始的 incident_key（用于 sopmap）
+	SopID       string `json:"sop_id"`       // 可选：如果已知 sop_id，直接使用
 	Prompt      string `json:"prompt"`
 }
 
 func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, error) {
-	// 1) map incident_key → sop_id
-	sopID, err := o.sopmap.GetOrCreate(in.IncidentKey)
-	if err != nil {
-		return "", err
+	// 1) 确定 sop_id
+	var sopID string
+	var err error
+	
+	if in.SopID != "" {
+		// 如果已提供 sop_id，直接使用，并更新映射
+		sopID = in.SopID
+		if in.IncidentKey != "" {
+			// 记录 incident_key → sop_id 映射
+			_ = o.sopmap.Set(in.IncidentKey, sopID)
+		}
+	} else {
+		// 否则，通过 incident_key 生成或获取 sop_id
+		sopID, err = o.sopmap.GetOrCreate(in.IncidentKey)
+		if err != nil {
+			return "", err
+		}
 	}
+	
 	convPath := o.conv.PathFor(sopID)
 
 	// 2) lease a session
