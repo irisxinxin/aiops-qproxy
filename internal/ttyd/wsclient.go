@@ -46,11 +46,12 @@ type Client struct {
 	mu   sync.Mutex
 	url  string
 	// config for reconnects or hello
-	opt           DialOptions
-	done          chan struct{}
-	keepaliveQuit chan struct{}
-	pingTicker    *time.Ticker
-	readIdle      time.Duration
+	opt            DialOptions
+	done           chan struct{}
+	keepaliveQuit  chan struct{}
+	keepalivePause chan bool // true=pause, false=resume
+	pingTicker     *time.Ticker
+	readIdle       time.Duration
 }
 
 type helloFrame struct {
@@ -165,6 +166,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
 	if opt.KeepAlive > 0 {
 		c.keepaliveQuit = make(chan struct{})
+		c.keepalivePause = make(chan bool, 1) // buffered，避免阻塞
 		go c.keepalive(opt.KeepAlive)
 		log.Printf("ttyd: keepalive started (interval: %v)", opt.KeepAlive)
 	}
@@ -401,6 +403,23 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	default:
 	}
 
+	// 暂停 keepalive，避免干扰响应读取
+	if c.keepalivePause != nil {
+		select {
+		case c.keepalivePause <- true:
+		default:
+		}
+	}
+	// 确保 Ask 结束后恢复 keepalive
+	defer func() {
+		if c.keepalivePause != nil {
+			select {
+			case c.keepalivePause <- false:
+			default:
+			}
+		}
+	}()
+
 	// 记录发送的 prompt（截断过长的内容）
 	promptPreview := prompt
 	if len(promptPreview) > 200 {
@@ -423,24 +442,36 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 }
 
 // keepalive 定期发送空终端输入以保持 ttyd 连接活跃
+// 支持暂停/恢复机制，避免干扰 Ask 操作
 func (c *Client) keepalive(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	paused := false
 
 	for {
 		select {
 		case <-ticker.C:
-			// 发送空的终端输入（只有类型前缀"0"，没有实际内容）
-			// 这样 ttyd 会认为连接是活跃的，不会因为 idle 而断开
-			c.mu.Lock()
-			err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
-			c.mu.Unlock()
-			
-			if err != nil {
-				log.Printf("ttyd: keepalive write failed: %v", err)
-				return
+			if !paused {
+				// 发送空的终端输入（只有类型前缀"0"，没有实际内容）
+				// 这样 ttyd 会认为连接是活跃的，不会因为 idle 而断开
+				c.mu.Lock()
+				err := c.conn.WriteMessage(websocket.TextMessage, []byte("0"))
+				c.mu.Unlock()
+				
+				if err != nil {
+					log.Printf("ttyd: keepalive write failed: %v", err)
+					return
+				}
+				log.Printf("ttyd: keepalive ping sent")
 			}
-			log.Printf("ttyd: keepalive ping sent")
+			
+		case pause := <-c.keepalivePause:
+			paused = pause
+			if paused {
+				log.Printf("ttyd: keepalive paused")
+			} else {
+				log.Printf("ttyd: keepalive resumed")
+			}
 			
 		case <-c.keepaliveQuit:
 			log.Printf("ttyd: keepalive stopped")
