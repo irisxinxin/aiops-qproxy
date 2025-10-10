@@ -357,77 +357,13 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 	return b.String(), finalSopID
 }
 
-// 兼容旧的函数签名
+// buildSopContext 已废弃，请使用 buildSopContextWithID
+// 保留此函数仅为向后兼容，但不推荐使用
+// 注意：此函数可能返回多个 SOP 的合并内容，与新的单一 SOP 逻辑不一致
 func buildSopContext(a Alert, dir string) string {
-	if strings.TrimSpace(dir) == "" {
-		return ""
-	}
-	lines, err := collectSopLines(dir)
-	if err != nil || len(lines) == 0 {
-		return ""
-	}
-
-	var hit []SopLine
-	for _, l := range lines {
-		if keyMatches(l.Keys, a) {
-			hit = append(hit, l)
-		}
-	}
-	if len(hit) == 0 {
-		return ""
-	}
-	sort.SliceStable(hit, func(i, j int) bool {
-		pi := strings.ToUpper(hit[i].Priority)
-		pj := strings.ToUpper(hit[j].Priority)
-		order := map[string]int{"HIGH": 0, "MIDDLE": 1, "LOW": 2}
-		return order[pi] < order[pj]
-	})
-
-	var b strings.Builder
-	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
-
-	// 列出匹配到的 SOP ID
-	sopIDs := []string{}
-	for _, s := range hit {
-		if s.SopID != "" {
-			sopIDs = append(sopIDs, s.SopID)
-		}
-	}
-	if len(sopIDs) > 0 {
-		b.WriteString("Matched SOP ID: " + strings.Join(sopIDs, ", ") + "\n\n")
-	}
-
-	seen := map[string]bool{}
-	appendList := func(prefix string, arr []string, limit int) {
-		cnt := 0
-		for _, x := range arr {
-			x = strings.TrimSpace(x)
-			if x == "" {
-				continue
-			}
-			x = replaceSOPTemplates(x, a)
-			key := prefix + "::" + x
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			b.WriteString("- " + prefix + ": " + x + "\n")
-			cnt++
-			if limit > 0 && cnt >= limit {
-				break
-			}
-		}
-	}
-
-	for _, s := range hit {
-		appendList("Command", s.Command, 5)
-		appendList("Metric", s.Metric, 5)
-		appendList("Log", s.Log, 3)
-		appendList("Parameter", s.Parameter, 3)
-		appendList("FixAction", s.FixAction, 3)
-	}
-
-	return b.String()
+	// 直接调用新函数，只返回内容部分
+	content, _ := buildSopContextWithID(a, dir)
+	return content
 }
 
 func readFileSafe(path string) string {
