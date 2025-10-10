@@ -430,7 +430,7 @@ func main() {
 			}
 			return p, nil
 		}
-		
+
 		// 2. 加载 task instructions（如果存在）
 		taskPath := filepath.Join(".", "ctx", "task_instructions.md")
 		taskDoc := strings.TrimSpace(readFileSafe(taskPath))
@@ -442,18 +442,18 @@ func main() {
 			}
 			taskDoc = trimToBytesUTF8(taskDoc, limit)
 		}
-		
+
 		// 3. 尝试解析为 Alert 并集成 SOP
 		var alert Alert
 		if err := json.Unmarshal(raw, &alert); err == nil && alert.Service != "" {
 			// 这是一个完整的 Alert，构建包含 SOP + Task Instructions 的 prompt
-			
+
 			// 3.1) 加载 SOP
 			sopText := ""
 			if sopEnabled == "1" {
 				sopText = buildSopContext(alert, sopDir)
 			}
-			
+
 			// 3.2) 规范化 Alert JSON
 			alertMap := make(map[string]any)
 			if err := json.Unmarshal(raw, &alertMap); err == nil {
@@ -461,35 +461,35 @@ func main() {
 					alertMap["threshold"] = thStr
 				}
 				alertJSON, _ := json.MarshalIndent(alertMap, "", "  ")
-				
+
 				// 3.3) 组装完整 prompt
 				var b strings.Builder
 				b.WriteString("You are an AIOps root-cause assistant.\n")
 				b.WriteString("This is a SINGLE-TURN request. All data is COMPLETE below.\n")
 				b.WriteString("DO NOT ask me to continue. Start now and return ONLY the final result.\n\n")
-				
+
 				// Task Instructions
 				if taskDoc != "" {
 					b.WriteString("## TASK INSTRUCTIONS (verbatim)\n")
 					b.WriteString(taskDoc)
 					b.WriteString("\n\n")
 				}
-				
+
 				// Alert JSON
 				b.WriteString("## ALERT JSON (complete)\n")
 				b.WriteString(string(alertJSON))
 				b.WriteString("\n\n")
-				
+
 				// SOP
 				if sopText != "" {
 					b.WriteString(sopText)
 					b.WriteString("\n")
 				}
-				
+
 				return b.String(), nil
 			}
 		}
-		
+
 		// 4. 回退：从 JSON 提取 prompt 字段，也构建完整版本
 		var userPrompt string
 		if m != nil {
@@ -500,25 +500,25 @@ func main() {
 				}
 			}
 		}
-		
+
 		if userPrompt != "" {
 			// 即使是简单 prompt，也加上 task instructions 和标准格式
 			var b strings.Builder
 			b.WriteString("You are an AIOps assistant.\n")
-			
+
 			if taskDoc != "" {
 				b.WriteString("## TASK INSTRUCTIONS\n")
 				b.WriteString(taskDoc)
 				b.WriteString("\n\n")
 			}
-			
+
 			b.WriteString("## USER QUERY\n")
 			b.WriteString(userPrompt)
 			b.WriteString("\n")
-			
+
 			return b.String(), nil
 		}
-		
+
 		return "", errors.New("no prompt (set QPROXY_PROMPT_BUILDER_CMD or provide Alert JSON or include prompt field)")
 	}
 
