@@ -35,7 +35,8 @@ type DialOptions struct {
 	HandshakeTO time.Duration
 	ConnectTO   time.Duration
 	ReadIdleTO  time.Duration
-	KeepAlive   time.Duration
+    // KeepAlive 已废弃（ttyd 本地稳定连接无需 keepalive）
+    KeepAlive   time.Duration
 	InsecureTLS bool
 	// 唤醒 Q 的方式：ctrlc（默认）/ newline / none
 	WakeMode string
@@ -48,10 +49,6 @@ type Client struct {
 	// config for reconnects or hello
 	opt            DialOptions
 	done           chan struct{}
-	keepaliveQuit  chan struct{}
-	keepalivePause chan bool     // true=pause, false=resume
-	keepaliveAck   chan struct{} // keepalive 确认已暂停/恢复
-	pingTicker     *time.Ticker
 	readIdle       time.Duration
 }
 
@@ -96,14 +93,13 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, err
 	}
 	log.Printf("ttyd: WebSocket connection established")
-	c := &Client{
-		conn:          conn,
-		url:           u.String(),
-		opt:           opt,
-		done:          make(chan struct{}),
-		keepaliveQuit: make(chan struct{}),
-		readIdle:      opt.ReadIdleTO,
-	}
+    c := &Client{
+        conn:     conn,
+        url:      u.String(),
+        opt:      opt,
+        done:     make(chan struct{}),
+        readIdle: opt.ReadIdleTO,
+    }
 	// 读限制，但不设置初始 ReadDeadline（会在 readUntilPrompt 后设置为 24h）
 	c.conn.SetReadLimit(16 << 20)
 	// 移除 PongHandler 和初始 ReadDeadline，避免与后续的 24h 设置冲突
@@ -161,18 +157,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 不设置 ReadDeadline！让连接永远不会因为超时而断开
 	log.Printf("ttyd: connection established, NO ReadDeadline set (永不超时)")
 
-	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
-	log.Printf("ttyd: checking keepalive config: opt.KeepAlive=%v", opt.KeepAlive)
-	if opt.KeepAlive > 0 {
-		c.keepaliveQuit = make(chan struct{})
-		c.keepalivePause = make(chan bool)
-		c.keepaliveAck = make(chan struct{})
-		log.Printf("ttyd: starting keepalive goroutine with interval %v", opt.KeepAlive)
-		go c.keepalive(opt.KeepAlive)
-		log.Printf("ttyd: keepalive started (interval: %v)", opt.KeepAlive)
-	} else {
-		log.Printf("ttyd: keepalive DISABLED (opt.KeepAlive is %v)", opt.KeepAlive)
-	}
+    // 不启动 keepalive（本地 ttyd 稳定，无需心跳）
+    log.Printf("ttyd: keepalive disabled by design")
 	return c, nil
 }
 
@@ -400,28 +386,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	default:
 	}
 
-	// 暂停 keepalive，避免干扰响应读取，并等待确认
-	if c.keepalivePause != nil {
-		select {
-		case c.keepalivePause <- true:
-			<-c.keepaliveAck // 等待 keepalive 确认已暂停
-			log.Printf("ttyd: keepalive pause confirmed, starting Ask")
-		case <-time.After(1 * time.Second):
-			log.Printf("ttyd: keepalive pause timeout (keepalive not running?), proceeding anyway")
-		}
-	}
-	// 确保 Ask 结束后恢复 keepalive
-	defer func() {
-		if c.keepalivePause != nil {
-			select {
-			case c.keepalivePause <- false:
-				<-c.keepaliveAck // 等待 keepalive 确认已恢复
-				log.Printf("ttyd: keepalive resume confirmed")
-			case <-time.After(1 * time.Second):
-				log.Printf("ttyd: keepalive resume timeout (keepalive not running?)")
-			}
-		}
-	}()
+    // 无 keepalive，无需暂停/恢复
 
 	// 记录发送的 prompt（截断过长的内容）
 	promptPreview := prompt
@@ -443,61 +408,11 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	return response, err
 }
 
-// keepalive 定期发送空终端输入以保持 ttyd 连接活跃
-// 支持暂停/恢复机制，避免干扰 Ask 操作
-func (c *Client) keepalive(interval time.Duration) {
-	log.Printf("ttyd: keepalive goroutine started, interval=%v", interval)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	paused := false
-
-	for {
-		select {
-		case <-ticker.C:
-			if !paused {
-				// 发送 WebSocket Ping 帧以保持连接活跃
-				// libwebsockets 检测 Ping/Pong 作为活跃度判断
-				c.mu.Lock()
-				deadline := time.Now().Add(5 * time.Second)
-				err := c.conn.WriteControl(websocket.PingMessage, []byte("keepalive"), deadline)
-				c.mu.Unlock()
-
-				if err != nil {
-					log.Printf("ttyd: keepalive ping failed: %v (connection may be dead, stopping keepalive)", err)
-					return
-				}
-				// 减少日志噪音：只在关键时刻记录
-				if time.Now().Unix()%30 == 0 { // 每 30 秒左右记录一次
-					log.Printf("ttyd: keepalive running (WebSocket Ping sent)")
-				}
-			}
-
-		case pause := <-c.keepalivePause:
-			paused = pause
-			if paused {
-				log.Printf("ttyd: keepalive paused")
-			} else {
-				log.Printf("ttyd: keepalive resumed")
-			}
-			// 发送确认信号
-			c.keepaliveAck <- struct{}{}
-
-		case <-c.keepaliveQuit:
-			log.Printf("ttyd: keepalive stopped")
-			return
-		}
-	}
-}
+// keepalive 已移除
 
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	// 停止 keepalive goroutine
-	if c.keepaliveQuit != nil {
-		close(c.keepaliveQuit)
-	}
-
 	return c.conn.Close()
 }
 
