@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"aiops-qproxy/internal/pool"
@@ -103,24 +104,32 @@ func parseSopJSONL(path string) ([]SopLine, error) {
 }
 
 func collectSopLines(dir string) ([]SopLine, error) {
-	var merged []SopLine
-	walkFn := func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, ".jsonl") {
-			lines, e := parseSopJSONL(path)
-			if e == nil {
-				merged = append(merged, lines...)
-			}
-		}
-		return nil
-	}
-	_ = filepath.WalkDir(dir, walkFn)
-	return merged, nil
+    var merged []SopLine
+    walkFn := func(path string, d fs.DirEntry, err error) error {
+        if err != nil { return nil }
+        if d.IsDir() { return nil }
+        if strings.HasSuffix(path, ".jsonl") {
+            lines, e := parseSopJSONL(path)
+            if e == nil { merged = append(merged, lines...) }
+        }
+        return nil
+    }
+    _ = filepath.WalkDir(dir, walkFn)
+    return merged, nil
+}
+
+// 全局 SOP 缓存（只加载一次）
+var (
+    sopCacheOnce sync.Once
+    sopCache     []SopLine
+)
+
+func getCachedSopLines(dir string) []SopLine {
+    sopCacheOnce.Do(func() {
+        lines, err := collectSopLines(dir)
+        if err == nil { sopCache = lines } else { sopCache = nil }
+    })
+    return sopCache
 }
 
 func wildcardMatch(patt, val string) bool {
@@ -275,9 +284,9 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 	h := sha1.Sum([]byte(incidentKey))
 	expectedSopID := "sop_" + hex.EncodeToString(h[:])[:12]
 
-	// 加载所有 SOP
-	lines, err := collectSopLines(dir)
-	if err != nil || len(lines) == 0 {
+    // 加载所有 SOP（缓存）
+    lines := getCachedSopLines(dir)
+    if len(lines) == 0 {
 		return "", ""
 	}
 
