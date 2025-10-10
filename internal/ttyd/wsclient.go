@@ -119,6 +119,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd init read: %w", err)
 	}
 
+	// 初始化完成后，重置 ReadDeadline 为 24 小时，保持连接长期有效
+	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
 		go c.keepalive()
@@ -204,6 +207,9 @@ func (c *Client) Ask(ctx context.Context, prompt string, timeout time.Duration) 
 	if err != nil {
 		return "", fmt.Errorf("read: %w", err)
 	}
+	// 关键：readUntilPrompt 可能设置了短 deadline (1.2s)，需要重置为长超时
+	// 防止连接在空闲时被 ReadDeadline 关闭
+	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
 	return string(resp), nil
 }
 
