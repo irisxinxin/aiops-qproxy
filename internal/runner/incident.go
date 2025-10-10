@@ -157,10 +157,7 @@ func isUsableOutput(s string) bool {
 		return false
 	}
 	low := strings.ToLower(t)
-	if strings.HasPrefix(t, ">") || strings.HasPrefix(t, "!>") {
-		// 看起来像提示符回显
-		// 允许后续规则继续判断：若有明显结构字段仍可用
-	}
+	// 提示符前缀判断仅作为注释性提示，不做空操作分支，避免静态检查告警
 	if strings.Contains(low, "root_cause") || strings.Contains(low, "analysis_summary") || strings.Contains(low, "confidence") {
 		return true
 	}
