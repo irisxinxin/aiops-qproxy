@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,32 +105,42 @@ func parseSopJSONL(path string) ([]SopLine, error) {
 }
 
 func collectSopLines(dir string) ([]SopLine, error) {
-    var merged []SopLine
-    walkFn := func(path string, d fs.DirEntry, err error) error {
-        if err != nil { return nil }
-        if d.IsDir() { return nil }
-        if strings.HasSuffix(path, ".jsonl") {
-            lines, e := parseSopJSONL(path)
-            if e == nil { merged = append(merged, lines...) }
-        }
-        return nil
-    }
-    _ = filepath.WalkDir(dir, walkFn)
-    return merged, nil
+	var merged []SopLine
+	walkFn := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".jsonl") {
+			lines, e := parseSopJSONL(path)
+			if e == nil {
+				merged = append(merged, lines...)
+			}
+		}
+		return nil
+	}
+	_ = filepath.WalkDir(dir, walkFn)
+	return merged, nil
 }
 
 // 全局 SOP 缓存（只加载一次）
 var (
-    sopCacheOnce sync.Once
-    sopCache     []SopLine
+	sopCacheOnce sync.Once
+	sopCache     []SopLine
 )
 
 func getCachedSopLines(dir string) []SopLine {
-    sopCacheOnce.Do(func() {
-        lines, err := collectSopLines(dir)
-        if err == nil { sopCache = lines } else { sopCache = nil }
-    })
-    return sopCache
+	sopCacheOnce.Do(func() {
+		lines, err := collectSopLines(dir)
+		if err == nil {
+			sopCache = lines
+		} else {
+			sopCache = nil
+		}
+	})
+	return sopCache
 }
 
 func wildcardMatch(patt, val string) bool {
@@ -284,9 +295,9 @@ func buildSopContextWithID(a Alert, dir string) (string, string) {
 	h := sha1.Sum([]byte(incidentKey))
 	expectedSopID := "sop_" + hex.EncodeToString(h[:])[:12]
 
-    // 加载所有 SOP（缓存）
-    lines := getCachedSopLines(dir)
-    if len(lines) == 0 {
+	// 加载所有 SOP（缓存）
+	lines := getCachedSopLines(dir)
+	if len(lines) == 0 {
 		return "", ""
 	}
 
@@ -767,6 +778,38 @@ func main() {
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 		defer cancel()
+
+		// 若设置 QPROXY_CPU_PROFILE_SEC，临时采样 CPU（避免容器挂之前拿不到 profile）
+		if secStr := getenv("QPROXY_CPU_PROFILE_SEC", ""); strings.TrimSpace(secStr) != "" {
+			if sec, err := strconv.Atoi(secStr); err == nil && sec > 0 {
+				path := filepath.Join("./logs", fmt.Sprintf("cpu_%d.pprof", time.Now().Unix()))
+				if f, e := os.Create(path); e == nil {
+					_ = pprof.StartCPUProfile(f)
+					defer func() {
+						pprof.StopCPUProfile()
+						_ = f.Close()
+						log.Printf("cpu profile written: %s", path)
+					}()
+					// 采样 sec 秒，不阻塞主路径：通过 context.WithTimeout 来包裹 Process
+					procCtx, cancelProc := context.WithTimeout(ctx, time.Duration(sec)*time.Second)
+					defer cancelProc()
+					out, err := orc.Process(procCtx, in)
+					if err != nil {
+						log.Printf("incident: processing failed for %s: %v", in.IncidentKey, err)
+						http.Error(w, fmt.Sprintf("process error: %v", err), http.StatusBadGateway)
+						return
+					}
+					cleanedOut := cleanText(out)
+					rsum := sha1.Sum([]byte(cleanedOut))
+					rhash := hex.EncodeToString(rsum[:])
+					if len(rhash) > 12 { rhash = rhash[:12] }
+					log.Printf("incident: processing completed for %s, raw_response_len=%d, cleaned_len=%d, response_sha1=%s",
+						in.IncidentKey, len(out), len(cleanedOut), rhash)
+					_ = json.NewEncoder(w).Encode(map[string]any{"answer": cleanedOut})
+					return
+				}
+			}
+		}
 
 		out, err := orc.Process(ctx, in)
 		if err != nil {
