@@ -475,6 +475,8 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	}
 	response, err := c.readResponse(useCtx, idle)
 	if err != nil {
+		// 记录一次错误，便于与上层日志对齐
+		log.Printf("ttyd: readResponse error: %v", err)
 		return "", err
 	}
 	// 读取完成后，尝试消费可能的附加控制帧，避免残留阻塞（非致命）

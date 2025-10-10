@@ -3,6 +3,7 @@ package qflow
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -105,11 +106,19 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 	}
 	out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
 	if err == nil {
+		// 检测仅提示符（可能代表配额/权限问题）
+		if looksLikePromptOnly(out) {
+			log.Printf("qflow: prompt-only response detected (possible quota exhausted)")
+			return "", fmt.Errorf("quota_exhausted: prompt-only response from q chat")
+		}
 		// 去除回显的输入与提示符行（仅保留 q 的输出）
 		cleaned := stripPromptEcho(out, p)
 		return cleaned, nil
 	}
+	// 记录错误详情，辅助定位是否误判连接错误
+	log.Printf("qflow: Ask failed: %v", err)
 	if IsConnError(err) {
+		log.Printf("qflow: detected connection error, will close and redial once")
 		// 记录并标记旧连接坏掉，主动关闭后重连一次再重试
 		_ = s.cli.Close()
 		cli, e2 := ttyd.Dial(ctx, ttyd.DialOptions{
@@ -132,6 +141,10 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 			out2, e3 := s.cli.Ask(ctx, p, s.opts.IdleTO)
 			if e3 != nil {
 				return "", e3
+			}
+			if looksLikePromptOnly(out2) {
+				log.Printf("qflow: prompt-only response detected after reconnect (possible quota exhausted)")
+				return "", fmt.Errorf("quota_exhausted: prompt-only response from q chat")
 			}
 			cleaned := stripPromptEcho(out2, p)
 			return cleaned, nil
@@ -262,6 +275,31 @@ func extractFirstJSON(s string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// looksLikePromptOnly 粗略判断输出是否仅为提示符（例如 ">" 或多行以 ">"/"!>" 开头），
+// 常见于配额不足或 q chat 拒绝执行时仅回显提示符。
+func looksLikePromptOnly(s string) bool {
+	t := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n"))
+	if t == ">" || t == "!>" || t == "»" || t == "»>" {
+		return true
+	}
+	// 多行全部为提示符样式
+	lines := strings.Split(t, "\n")
+	if len(lines) > 0 {
+		only := true
+		for _, ln := range lines {
+			x := strings.TrimSpace(ln)
+			if !(x == ">" || x == "!>" || strings.HasPrefix(x, ">") || strings.HasPrefix(x, "!>")) {
+				only = false
+				break
+			}
+		}
+		if only {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Session) Close() error {

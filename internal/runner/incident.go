@@ -96,28 +96,33 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 		return "", err
 	}
 
-	// 5) compact + save (overwrite)
-	log.Printf("runner: executing /compact")
-	if e := s.Compact(); e != nil {
-		if qflow.IsConnError(e) {
-			lease.MarkBroken()
-			log.Printf("runner: /compact failed (conn): %v", e)
-			return "", e
+	// 5) 仅在输出“看起来可用”时才进行 compact+save
+	if isUsableOutput(out) {
+		log.Printf("runner: output looks usable, executing /compact + /save")
+		log.Printf("runner: executing /compact")
+		if e := s.Compact(); e != nil {
+			if qflow.IsConnError(e) {
+				lease.MarkBroken()
+				log.Printf("runner: /compact failed (conn): %v", e)
+				return "", e
+			}
+			log.Printf("runner: /compact failed: %v", e)
+		} else {
+			log.Printf("runner: /compact ok")
 		}
-		log.Printf("runner: /compact failed: %v", e)
-	} else {
-		log.Printf("runner: /compact ok")
-	}
-	log.Printf("runner: executing /save %s (force)", convPath)
-	if e := s.Save(convPath, true); e != nil {
-		if qflow.IsConnError(e) {
-			lease.MarkBroken()
-			log.Printf("runner: /save failed (conn): %v", e)
-			return "", e
+		log.Printf("runner: executing /save %s (force)", convPath)
+		if e := s.Save(convPath, true); e != nil {
+			if qflow.IsConnError(e) {
+				lease.MarkBroken()
+				log.Printf("runner: /save failed (conn): %v", e)
+				return "", e
+			}
+			log.Printf("runner: /save failed: %v", e)
+		} else {
+			log.Printf("runner: /save ok")
 		}
-		log.Printf("runner: /save failed: %v", e)
 	} else {
-		log.Printf("runner: /save ok")
+		log.Printf("runner: output not usable, skip /compact and /save")
 	}
 
 	// 6) 清理 session context（成功完成后才清理）
@@ -125,18 +130,7 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cleanupCancel()
 
-	// 清理 Q CLI 的上下文，打印执行结果
-	log.Printf("runner: executing /context clear (cleanup)")
-	if e := s.ContextClearWithContext(cleanupCtx); e != nil {
-		if qflow.IsConnError(e) {
-			lease.MarkBroken()
-			log.Printf("runner: /context clear failed (conn): %v", e)
-		} else {
-			log.Printf("runner: /context clear failed: %v", e)
-		}
-	} else {
-		log.Printf("runner: /context clear ok")
-	}
+	// 清理：仅保留 /clear
 	log.Printf("runner: executing /clear (cleanup)")
 	if e := s.ClearWithContext(cleanupCtx); e != nil {
 		if qflow.IsConnError(e) {
@@ -150,4 +144,26 @@ func (o *Orchestrator) Process(ctx context.Context, in IncidentInput) (string, e
 	}
 
 	return out, nil
+}
+
+// isUsableOutput 使用轻量启发式判断输出是否“足够有用”以保存会话
+// 规则：
+//   - 包含典型字段（root_cause/analysis_summary/confidence）则认为可用
+//   - 或者长度达到一定阈值（例如 >= 200 字符）
+//   - 纯提示符/空白被判定为不可用
+func isUsableOutput(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" {
+		return false
+	}
+	low := strings.ToLower(t)
+	if strings.HasPrefix(t, ">") || strings.HasPrefix(t, "!>") {
+		// 看起来像提示符回显
+		// 允许后续规则继续判断：若有明显结构字段仍可用
+	}
+	if strings.Contains(low, "root_cause") || strings.Contains(low, "analysis_summary") || strings.Contains(low, "confidence") {
+		return true
+	}
+	// 长度阈值（可按需调整）
+	return len(t) >= 200
 }
