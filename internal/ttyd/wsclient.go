@@ -53,17 +53,34 @@ type helloFrame struct {
 	Rows      int    `json:"rows"`
 }
 
-// —— 工具：去 ANSI；宽松提示符检测 —— //
-var reANSI = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
-// 更宽松的提示符检测：去除 ANSI 后，trim 右侧空白，以 > 结尾即可
-var rePrompt = regexp.MustCompile(`>\s*$`)
+// —— 工具：去 ANSI；提示符检测 —— //
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
 
-func stripANSI(b []byte) []byte { return reANSI.ReplaceAll(b, nil) }
+func stripANSI(s string) string { return ansiRegex.ReplaceAllString(s, "") }
+func isAlnum(b byte) bool       { return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') }
 func getTail(b []byte, n int) string {
 	if len(b) <= n {
 		return string(b)
 	}
 	return string(b[len(b)-n:])
+}
+
+// 检查 buffer 末尾是否有提示符（之前版本的逻辑）
+func hasPrompt(buf []byte) bool {
+	tail := buf
+	if len(tail) > 500 {
+		tail = tail[len(tail)-500:]
+	}
+	cleaned := stripANSI(string(tail))
+	cleaned = strings.TrimRight(cleaned, " \r\n\t")
+	// 宽松判定：trim 后以 > 结尾，且不是字母数字紧接着（避免误判单词）
+	if strings.HasSuffix(cleaned, ">") && len(cleaned) > 0 {
+		// 检查 > 前一个字符（如果有）不是字母数字
+		if len(cleaned) == 1 || !isAlnum(cleaned[len(cleaned)-2]) {
+			return true
+		}
+	}
+	return false
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -187,10 +204,9 @@ func (c *Client) readUntilPrompt(ctx context.Context, to time.Duration) ([]byte,
 		if op != '0' {
 			continue
 		} // 只关心 OUTPUT
-		clean := stripANSI(data)
-		buf.Write(clean)
-		// 宽松判定：去 ANSI 后，以 > 结尾（可选空白）
-		if rePrompt.Match(buf.Bytes()) {
+		buf.Write(data)
+		// 使用之前版本的提示符检测逻辑
+		if hasPrompt(buf.Bytes()) {
 			sawPrompt = true
 			_ = c.conn.SetReadDeadline(time.Now().Add(1200 * time.Millisecond))
 			log.Printf("ttyd: prompt detected, buf tail (last 200 chars): %q", getTail(buf.Bytes(), 200))
