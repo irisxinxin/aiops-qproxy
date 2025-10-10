@@ -93,11 +93,11 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, err
 	}
 	log.Printf("ttyd: WebSocket connection established")
-    // 记录对端关闭事件，便于定位是谁主动断开
-    conn.SetCloseHandler(func(code int, text string) error {
-        log.Printf("ttyd: close from peer (code=%d, text=%q)", code, text)
-        return nil
-    })
+	// 记录对端关闭事件，便于定位是谁主动断开
+	conn.SetCloseHandler(func(code int, text string) error {
+		log.Printf("ttyd: close from peer (code=%d, text=%q)", code, text)
+		return nil
+	})
 	c := &Client{
 		conn:     conn,
 		url:      u.String(),
@@ -220,7 +220,7 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 		default:
 		}
 
-        typ, data, err := c.conn.ReadMessage()
+		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			// 如果是超时，但 buf 里已有提示符，说明已到齐，返回成功
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -240,12 +240,12 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 					}
 				}
 			}
-            // 判断是否是对端关闭
-            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("ttyd: peer closed connection while waiting initial prompt: %v", err)
-            } else {
-                log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
-            }
+			// 判断是否是对端关闭
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("ttyd: peer closed connection while waiting initial prompt: %v", err)
+			} else {
+				log.Printf("ttyd: read message error after %d messages: %v", msgCount, err)
+			}
 			return "", err
 		}
 		if typ != websocket.TextMessage && typ != websocket.BinaryMessage {
@@ -310,7 +310,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 		default:
 		}
 
-        typ, data, err := c.conn.ReadMessage()
+		typ, data, err := c.conn.ReadMessage()
 		if err != nil {
 			// 超时检查：如果 buf 里已有提示符，说明响应完成
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -328,11 +328,11 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					}
 				}
 			}
-            if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("ttyd: peer closed connection during response read: %v", err)
-            } else {
-                log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
-            }
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("ttyd: peer closed connection during response read: %v", err)
+			} else {
+				log.Printf("ttyd: read error after %d messages: %v", msgCount, err)
+			}
 			return "", err
 		}
 
@@ -427,7 +427,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 func (c *Client) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-    log.Printf("ttyd: client.Close() called by local code, closing websocket")
+	log.Printf("ttyd: client.Close() called by local code, closing websocket")
 	return c.conn.Close()
 }
 
