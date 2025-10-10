@@ -63,25 +63,35 @@ func (s *Session) Save(path string, force bool) error {
 	if force {
 		cmd += " -f"
 	}
-	_, err := s.cli.Ask(context.Background(), cmd, s.opts.IdleTO)
+	// 使用带超时的 context，避免 /save 卡住
+	ctx, cancel := context.WithTimeout(context.Background(), s.opts.IdleTO)
+	defer cancel()
+	_, err := s.cli.Ask(ctx, cmd, s.opts.IdleTO)
 	return err
 }
 func (s *Session) Compact() error {
-	_, err := s.cli.Ask(context.Background(), "/compact", s.opts.IdleTO)
+	ctx, cancel := context.WithTimeout(context.Background(), s.opts.IdleTO)
+	defer cancel()
+	_, err := s.cli.Ask(ctx, "/compact", s.opts.IdleTO)
 	return err
 }
 func (s *Session) Clear() error {
 	return s.ClearWithContext(context.Background())
 }
 func (s *Session) ClearWithContext(ctx context.Context) error {
-	_, err := s.cli.Ask(ctx, "/clear", s.opts.IdleTO)
+	// 明确的超时包裹，避免卡死
+	cctx, cancel := context.WithTimeout(ctx, s.opts.IdleTO)
+	defer cancel()
+	_, err := s.cli.Ask(cctx, "/clear", s.opts.IdleTO)
 	return err
 }
 func (s *Session) ContextClear() error {
 	return s.ContextClearWithContext(context.Background())
 }
 func (s *Session) ContextClearWithContext(ctx context.Context) error {
-	_, err := s.cli.Ask(ctx, "/context clear", s.opts.IdleTO)
+	cctx, cancel := context.WithTimeout(ctx, s.opts.IdleTO)
+	defer cancel()
+	_, err := s.cli.Ask(cctx, "/context clear", s.opts.IdleTO)
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {

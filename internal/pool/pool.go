@@ -103,7 +103,13 @@ func (l *Lease) Release() {
 		}
 		return
 	}
-	l.p.slots <- l.s
+	// 非阻塞归还，防止因通道已满导致调用方卡死
+	select {
+	case l.p.slots <- l.s:
+	default:
+		_ = l.s.Close()
+		log.Printf("pool: slots full, dropping session on release")
+	}
 }
 
 func (p *Pool) fillOne(ctx context.Context) {

@@ -474,6 +474,13 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		}
 	}
 	response, err := c.readResponse(useCtx, idle)
+	if err != nil {
+		return "", err
+	}
+	// 读取完成后，尝试消费可能的附加控制帧，避免残留阻塞（非致命）
+	_ = c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+	_, _, _ = c.conn.ReadMessage()
+	_ = c.conn.SetReadDeadline(time.Time{})
 
 	// 不设置 ReadDeadline！保持连接永不超时
 
