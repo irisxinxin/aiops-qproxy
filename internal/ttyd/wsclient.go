@@ -158,11 +158,8 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("ttyd init read failed: %w", err)
 	}
 
-	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置
-	// 设置为超长超时（24小时），让连接保持活跃
-	// 只要 WebSocket 本身不断，就让它一直开着
-	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
-	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
+	// 不设置 ReadDeadline！让连接永远不会因为超时而断开
+	log.Printf("ttyd: connection established, NO ReadDeadline set (永不超时)")
 
 	// 启动 keepalive：定期发送空数据以防止 ttyd/libwebsockets 断开连接
 	log.Printf("ttyd: checking keepalive config: opt.KeepAlive=%v", opt.KeepAlive)
@@ -218,11 +215,9 @@ func isAlnum(b byte) bool {
 
 func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
-	// 设置硬截止时间用于超时检查（但只在初始化时调用，所以这里需要设置）
-	hardDeadline := time.Now().Add(idle)
-	_ = c.conn.SetReadDeadline(hardDeadline)
-
-	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
+	// 不设置 ReadDeadline！让连接永远不超时
+	// 依赖 context 来控制超时
+	log.Printf("ttyd: starting to read until prompt (NO ReadDeadline)")
 	msgCount := 0
 
 	for {
@@ -309,11 +304,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 	msgCount := 0
 	promptCount := 0 // 计数提示符出现次数（第一次是回显，第二次是响应结束）
 
-	log.Printf("ttyd: reading response (timeout: %v)", idle)
-
-	// 设置初始硬截止时间
-	hardDeadline := time.Now().Add(idle)
-	_ = c.conn.SetReadDeadline(hardDeadline)
+	log.Printf("ttyd: reading response (NO ReadDeadline, rely on context timeout)")
 
 	for {
 		select {
@@ -447,8 +438,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	// q chat 处理完成后自动退出（因为 stdin 关闭）
 	response, err := c.readResponse(ctx, idle)
 
-	// 读取完成后，重置 ReadDeadline 为 24 小时，保持连接活跃
-	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
+	// 不设置 ReadDeadline！保持连接永不超时
 
 	return response, err
 }
