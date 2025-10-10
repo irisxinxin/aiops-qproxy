@@ -216,7 +216,6 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 
 	log.Printf("ttyd: starting to read until prompt (timeout: %v)", idle)
 	msgCount := 0
-	promptLikeSeen := false // 是否看到过疑似提示符
 
 	for {
 		// 检查 context 是否被取消
@@ -290,16 +289,8 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 			}
 		}
 
-		// 智能超时策略：
-		// 1. 看到 ">" 字符后才用短超时（3秒），因为提示符可能快到了
-		// 2. 否则用长超时（30秒），给 Q CLI banner 足够时间
-		// 注意：这里检查去除前缀后的实际内容
-		if len(actualData) > 0 && strings.Contains(string(actualData), ">") || promptLikeSeen {
-			promptLikeSeen = true
-			_ = c.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-		} else {
-			_ = c.conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-		}
+		// 不再在循环中动态设置 ReadDeadline，只依赖初始的 hardDeadline
+		// 这样避免短超时累积导致连接在返回前被关闭
 	}
 }
 
@@ -308,22 +299,17 @@ func (c *Client) readUntilPrompt(ctx context.Context, idle time.Duration) (strin
 func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, error) {
 	var buf bytes.Buffer
 	msgCount := 0
-	lastDataTime := time.Now()
-	promptCount := 0    // 计数提示符出现次数（第一次是回显，第二次是响应结束）
-	hasContent := false // 是否已收到实际内容（非回显）
+	promptCount := 0 // 计数提示符出现次数（第一次是回显，第二次是响应结束）
 
 	log.Printf("ttyd: reading response (timeout: %v)", idle)
 
+	// 设置硬截止时间，避免在循环中动态设置短超时导致累积关闭
+	hardDeadline := time.Now().Add(idle)
+	_ = c.conn.SetReadDeadline(hardDeadline)
+
 	for {
-		// 智能超时策略：
-		// - 看到第二个提示符且有实际内容后，用短超时（5秒），响应可能已完成
-		// - 否则用长超时（idle），给 Q CLI 足够时间思考和生成响应
-		timeout := idle
-		if promptCount >= 2 && hasContent {
-			timeout = 5 * time.Second
-		}
-		deadline := lastDataTime.Add(timeout)
-		_ = c.conn.SetReadDeadline(deadline)
+		// 移除了动态 SetReadDeadline，只依赖初始的 hardDeadline
+		// 如果看到提示符，直接返回，不需要短超时
 
 		select {
 		case <-ctx.Done():
@@ -374,14 +360,7 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 						log.Printf("ttyd: prompt #%d detected in response", promptCount)
 					}
 
-					// 检查是否有实际内容（不只是回显和提示符）
-					// 如果内容长度 > 50 或包含关键词，认为是实际响应
-					if len(content) > 50 ||
-						strings.Contains(strings.ToLower(content), "hello") ||
-						strings.Contains(content, "答") ||
-						strings.Contains(content, "Thinking") {
-						hasContent = true
-					}
+					// 内容检测已移除，不再需要动态调整超时
 
 					// 记录收到的内容（调试用）
 					preview := content
@@ -391,7 +370,6 @@ func (c *Client) readResponse(ctx context.Context, idle time.Duration) (string, 
 					log.Printf("ttyd: received OUTPUT [%d bytes]: %q", len(actualContent), preview)
 				}
 				msgCount++
-				lastDataTime = time.Now() // 更新最后收到数据的时间
 			} else {
 				// 其他类型，忽略
 				log.Printf("ttyd: ignoring message type '%c'", msgType)
