@@ -218,6 +218,18 @@ func buildSopContext(a Alert, dir string) string {
 
 	var b strings.Builder
 	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
+	
+	// 列出匹配到的 SOP ID
+	sopIDs := []string{}
+	for _, s := range hit {
+		if s.SopID != "" {
+			sopIDs = append(sopIDs, s.SopID)
+		}
+	}
+	if len(sopIDs) > 0 {
+		b.WriteString("Matched SOP IDs: " + strings.Join(sopIDs, ", ") + "\n\n")
+	}
+	
 	seen := map[string]bool{}
 	appendList := func(prefix string, arr []string, limit int) {
 		cnt := 0

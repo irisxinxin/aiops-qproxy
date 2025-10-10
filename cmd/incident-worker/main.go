@@ -47,6 +47,7 @@ type Alert struct {
 }
 
 type SopLine struct {
+	SopID     string   `json:"sop_id"`     // SOP 唯一标识（用于会话关联）
 	Keys      []string `json:"keys"`       // 匹配条件: svc:omada cat:cpu
 	Priority  string   `json:"priority"`   // HIGH/MIDDLE/LOW
 	Command   []string `json:"command"`    // 诊断命令列表
@@ -240,6 +241,18 @@ func buildSopContext(a Alert, dir string) string {
 
 	var b strings.Builder
 	b.WriteString("### [SOP] Preloaded knowledge (high priority)\n")
+
+	// 列出匹配到的 SOP ID
+	sopIDs := []string{}
+	for _, s := range hit {
+		if s.SopID != "" {
+			sopIDs = append(sopIDs, s.SopID)
+		}
+	}
+	if len(sopIDs) > 0 {
+		b.WriteString("Matched SOP IDs: " + strings.Join(sopIDs, ", ") + "\n\n")
+	}
+
 	seen := map[string]bool{}
 	appendList := func(prefix string, arr []string, limit int) {
 		cnt := 0
