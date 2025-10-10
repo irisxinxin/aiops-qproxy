@@ -102,12 +102,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		keepaliveQuit: make(chan struct{}),
 		readIdle:      opt.ReadIdleTO,
 	}
-	// 读限制与超时，Pong 续期
+	// 读限制，但不设置初始 ReadDeadline（会在 readUntilPrompt 后设置为 24h）
 	c.conn.SetReadLimit(16 << 20)
-	_ = c.conn.SetReadDeadline(time.Now().Add(opt.ReadIdleTO))
-	c.conn.SetPongHandler(func(string) error {
-		return c.conn.SetReadDeadline(time.Now().Add(c.readIdle))
-	})
+	// 移除 PongHandler 和初始 ReadDeadline，避免与后续的 24h 设置冲突
 
 	// ---- 首帧：只发 columns/rows；NoAuth 下不带 AuthToken ----
 	hello := helloFrame{Columns: 120, Rows: 30}
