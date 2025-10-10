@@ -162,8 +162,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	// 重要：readUntilPrompt 会设置短超时（3秒），需要重置
 	// 设置为超长超时（24小时），让连接保持活跃
 	// 只要 WebSocket 本身不断，就让它一直开着
-	_ = c.conn.SetReadDeadline(time.Now().Add(24 * time.Hour))
-	log.Printf("ttyd: read deadline reset to 24h after init (keep connection alive)")
+	deadline24h := time.Now().Add(24 * time.Hour)
+	_ = c.conn.SetReadDeadline(deadline24h)
+	log.Printf("ttyd: read deadline reset to 24h after init (deadline=%v)", deadline24h.Format("2006-01-02 15:04:05"))
 
 	if opt.KeepAlive > 0 {
 		c.pingTicker = time.NewTicker(opt.KeepAlive)
@@ -460,6 +461,7 @@ func (c *Client) keepalive() {
 }
 
 func (c *Client) Close() error {
+	log.Printf("ttyd: closing WebSocket connection (url=%s)", c.url)
 	// 安全关闭 keepalive goroutine
 	select {
 	case <-c.keepaliveQuit:
@@ -472,7 +474,9 @@ func (c *Client) Close() error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.conn.Close()
+	err := c.conn.Close()
+	log.Printf("ttyd: WebSocket connection closed (url=%s, err=%v)", c.url, err)
+	return err
 }
 
 // Ping 健康探针
