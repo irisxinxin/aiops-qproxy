@@ -155,27 +155,23 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 				return string(out), nil
 			}
 		}
-		// wait with timeout
+		// wait with timeout using small sleep, avoid cond.Wait races
 		remain := time.Until(deadline)
 		if remain <= 0 {
 			c.rmu.Unlock()
 			return "", context.DeadlineExceeded
 		}
-		timer := time.NewTimer(remain)
-		done := make(chan struct{}, 1)
-		go func() { c.rcond.Wait(); done <- struct{}{} }()
+		sleep := 100 * time.Millisecond
+		if remain < sleep {
+			sleep = remain
+		}
 		c.rmu.Unlock()
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return "", ctx.Err()
-		case <-timer.C:
-			// timed out
-			return "", context.DeadlineExceeded
-		case <-done:
+		case <-time.After(sleep):
 		}
 		c.rmu.Lock()
-		timer.Stop()
 	}
 }
 
