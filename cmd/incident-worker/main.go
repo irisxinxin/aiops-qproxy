@@ -472,6 +472,27 @@ func main() {
 	orc := runner.NewOrchestrator(p, sm, cs)
 	log.Printf("incident-worker: ws=%s noauth=%v pool=%d", wsURL, noauth, n)
 
+	// 可选预热：在启动时对池中每个会话进行一次轻量探活，确保 q 已就绪
+	if getenv("QPROXY_WARMUP", "1") == "1" {
+		log.Printf("warmup: start preheating %d sessions", n)
+		for i := 0; i < n; i++ {
+			wctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			lease, e := p.Acquire(wctx)
+			cancel()
+			if e != nil {
+				log.Printf("warmup: acquire %d/%d failed: %v", i+1, n, e)
+				continue
+			}
+			s := lease.Session()
+			// 轻量清理，相当于一次交互，触发 prompt 就绪（内部 1s 超时保护）
+			if err := s.ClearWithContext(context.Background()); err != nil {
+				log.Printf("warmup: clear failed on %d/%d: %v", i+1, n, err)
+			}
+			lease.Release()
+		}
+		log.Printf("warmup: done")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		ready, size := p.Stats()
