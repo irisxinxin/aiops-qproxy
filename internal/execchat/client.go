@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -57,6 +58,7 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	} else if mode == "newline" || mode == "" {
 		_, _ = f.Write([]byte("\r"))
 	}
+	if qstreamDebugEnabled() { log.Printf("execchat: started q at %s, wake=%s", bin, mode) }
 	return c, nil
 }
 
@@ -119,6 +121,10 @@ func hasPromptFast(b []byte) bool {
 	return !((prev >= 'a' && prev <= 'z') || (prev >= 'A' && prev <= 'Z') || (prev >= '0' && prev <= '9'))
 }
 
+func qstreamDebugEnabled() bool {
+	return strings.ToLower(os.Getenv("QPROXY_QSTREAM_DEBUG")) == "1"
+}
+
 // extractFirstJSON searches first complete JSON object in s and returns it.
 func extractFirstJSON(s string) (string, bool) {
 	type st struct {
@@ -179,6 +185,13 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	if err != nil {
 		return "", err
 	}
+	if qstreamDebugEnabled() {
+		pp := p
+		if len(pp) > 200 {
+			pp = pp[:200] + "..."
+		}
+		log.Printf("execchat: <<PROMPT len=%d preview=%q", len(p), pp)
+	}
 
 	// wait until prompt appears in new tail
 	// 对于 warmup 等首次交互，给更长默认等待（120s）；正常管理命令由上层传入较短 idle
@@ -194,6 +207,7 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 	// auto-confirm for /clear
 	needConfirm := strings.HasPrefix(p, "/clear")
 	confirmed := false
+	lastLog := time.Now()
 	for {
 		// check new data for prompt
 		curSeq := c.dropCount + c.buf.Len()
@@ -211,7 +225,8 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 			// detect confirm question
 			if needConfirm && !confirmed {
 				lt := strings.ToLower(string(tail))
-				if strings.Contains(lt, "are you sure?") {
+				// 兼容多种文案
+				if strings.Contains(lt, "are you sure") || strings.Contains(lt, "confirm") || strings.Contains(lt, "[y/n]") {
 					c.rmu.Unlock()
 					c.mu.Lock()
 					_, _ = c.ptyf.Write([]byte("y\r"))
@@ -224,13 +239,29 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 				out := make([]byte, effCur-effStart)
 				copy(out, c.buf.Bytes()[effStart:effCur])
 				c.rmu.Unlock()
+				if qstreamDebugEnabled() {
+					prev := out
+					if len(prev) > 400 { prev = prev[len(prev)-400:] }
+					log.Printf("execchat: >>RESPONSE bytes=%d tail=%q", len(out), string(prev))
+				}
 				return string(out), nil
 			}
 			// If a complete JSON object already present, return early
 			if js, ok := extractFirstJSON(string(tail)); ok {
 				c.rmu.Unlock()
+				if qstreamDebugEnabled() {
+					prev := js
+					if len(prev) > 400 { prev = prev[:400] + "..." }
+					log.Printf("execchat: >>RESPONSE (json) bytes=%d preview=%q", len(js), prev)
+				}
 				return js, nil
 			}
+		}
+		if qstreamDebugEnabled() && time.Since(lastLog) >= time.Second {
+			prev := c.buf.Bytes()
+			if len(prev) > 200 { prev = prev[len(prev)-200:] }
+			log.Printf("execchat: waiting... cur_bytes=%d tail=%q", c.buf.Len(), string(prev))
+			lastLog = time.Now()
 		}
 		// wait with timeout using small sleep, avoid cond.Wait races
 		remain := time.Until(deadline)

@@ -111,8 +111,8 @@ func (s *Session) ClearWithContext(ctx context.Context) error {
 	const mgmtTO = time.Second
 	cctx, cancel := context.WithTimeout(ctx, mgmtTO)
 	defer cancel()
-	// /clear 会要求 y/n 确认，这里直接一并发送 'y' 避免阻塞
-	_, err := s.cli.Ask(cctx, "/clear\ny", mgmtTO)
+	// /clear 可能要求 y/n 确认；exec 模式会自动识别提示并发送 'y' 确认
+	_, err := s.cli.Ask(cctx, "/clear", mgmtTO)
 	return err
 }
 func (s *Session) ContextClear() error {
@@ -131,8 +131,8 @@ func (s *Session) Warmup(ctx context.Context, to time.Duration) error {
 	if to <= 0 {
 		to = 15 * time.Second
 	}
-	// 预热同样需要处理 y/n 确认
-	_, err := s.cli.Ask(ctx, "/clear\ny", to)
+	// 预热同样可能出现确认；exec 模式会自动识别并确认
+	_, err := s.cli.Ask(ctx, "/clear", to)
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {
