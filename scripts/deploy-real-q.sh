@@ -48,7 +48,7 @@ fi
 
 # 设置环境变量（默认切换为 exec-pool，绕过 ttyd）
 export QPROXY_MODE=exec-pool
-export Q_BIN=q
+export Q_BIN=/home/ubuntu/.local/bin/q
 export QPROXY_WS_URL=ws://127.0.0.1:7682/ws
 # 使用 NoAuth 模式，不设置认证信息
 # export QPROXY_WS_USER=demo
