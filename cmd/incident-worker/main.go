@@ -484,8 +484,10 @@ func main() {
 				continue
 			}
 			s := lease.Session()
-			// 轻量清理，相当于一次交互，触发 prompt 就绪（内部 1s 超时保护）
-			if err := s.ClearWithContext(context.Background()); err != nil {
+			// 尝试更长的 warmup 交互，给真实 q 足够时间输出首个提示
+			wctx2, cancel2 := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel2()
+			if err := s.Warmup(wctx2, 15*time.Second); err != nil {
 				log.Printf("warmup: clear failed on %d/%d: %v", i+1, n, err)
 			}
 			lease.Release()

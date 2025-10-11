@@ -124,6 +124,15 @@ func (s *Session) ContextClearWithContext(ctx context.Context) error {
 	_, err := s.cli.Ask(cctx, "/context clear", mgmtTO)
 	return err
 }
+
+// Warmup 尝试以自定义超时触发一次提示符（用于启动预热）
+func (s *Session) Warmup(ctx context.Context, to time.Duration) error {
+    if to <= 0 {
+        to = 15 * time.Second
+    }
+    _, err := s.cli.Ask(ctx, "/clear", to)
+    return err
+}
 func (s *Session) AskOnce(prompt string) (string, error) {
 	return s.AskOnceWithContext(context.Background(), prompt)
 }
