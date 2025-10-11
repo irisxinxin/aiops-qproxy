@@ -180,15 +180,20 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		return "", err
 	}
 
-    // wait until prompt appears in new tail
-    // 对于 warmup 等首次交互，给更长默认等待（120s）；正常管理命令由上层传入较短 idle
-    deadline := time.Now().Add(idle)
-    if idle <= 0 { deadline = time.Now().Add(120 * time.Second) }
+	// wait until prompt appears in new tail
+	// 对于 warmup 等首次交互，给更长默认等待（120s）；正常管理命令由上层传入较短 idle
+	deadline := time.Now().Add(idle)
+	if idle <= 0 {
+		deadline = time.Now().Add(120 * time.Second)
+	}
 
 	// logical start sequence = dropCount + len(buf)
 	startSeq := 0
 	c.rmu.Lock()
 	startSeq = c.dropCount + c.buf.Len()
+	// auto-confirm for /clear
+	needConfirm := strings.HasPrefix(p, "/clear")
+	confirmed := false
 	for {
 		// check new data for prompt
 		curSeq := c.dropCount + c.buf.Len()
@@ -202,6 +207,18 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 			// only scan last 500 bytes
 			if len(tail) > 500 {
 				tail = tail[len(tail)-500:]
+			}
+			// detect confirm question
+			if needConfirm && !confirmed {
+				lt := strings.ToLower(string(tail))
+				if strings.Contains(lt, "are you sure?") {
+					c.rmu.Unlock()
+					c.mu.Lock()
+					_, _ = c.ptyf.Write([]byte("y\r"))
+					c.mu.Unlock()
+					c.rmu.Lock()
+					confirmed = true
+				}
 			}
 			if hasPromptFast(tail) {
 				out := make([]byte, effCur-effStart)
