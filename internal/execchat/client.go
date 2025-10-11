@@ -27,9 +27,9 @@ type Client struct {
 	mu   sync.Mutex // serialize writes
 
 	// reader state
-	rmu   sync.Mutex
-	rcond *sync.Cond
-	buf   bytes.Buffer
+	rmu       sync.Mutex
+	buf       bytes.Buffer
+	dropCount int // total bytes dropped from head due to capping (protected by rmu)
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -47,7 +47,6 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	}
 
 	c := &Client{cmd: cmd, ptyf: f}
-	c.rcond = sync.NewCond(&c.rmu)
 	go c.readLoop()
 
 	// Wake prompt once
@@ -70,7 +69,6 @@ func (c *Client) readLoop() {
 			c.rmu.Lock()
 			c.buf.Write(tmp[:n])
 			c.capBufferLocked()
-			c.rcond.Broadcast()
 			c.rmu.Unlock()
 		}
 		if err != nil {
@@ -86,9 +84,14 @@ func (c *Client) capBufferLocked() {
 		return
 	}
 	b := c.buf.Bytes()
-	tail := b[len(b)-maxReadBufferBytes:]
+	removed := len(b) - maxReadBufferBytes
+	if removed < 0 {
+		removed = 0
+	}
+	tail := b[removed:]
 	c.buf.Reset()
 	_, _ = c.buf.Write(tail)
+	c.dropCount += removed
 }
 
 // hasPromptFast: check tail for '>' with non-alnum before, ignoring simple whitespace.
@@ -116,6 +119,53 @@ func hasPromptFast(b []byte) bool {
 	return !((prev >= 'a' && prev <= 'z') || (prev >= 'A' && prev <= 'Z') || (prev >= '0' && prev <= '9'))
 }
 
+// extractFirstJSON searches first complete JSON object in s and returns it.
+func extractFirstJSON(s string) (string, bool) {
+	type st struct {
+		inStr, esc   bool
+		depth, start int
+	}
+	runes := []rune(s)
+	var state st
+	state.start = -1
+	for i, r := range runes {
+		if state.inStr {
+			if state.esc {
+				state.esc = false
+				continue
+			}
+			if r == '\\' {
+				state.esc = true
+				continue
+			}
+			if r == '"' {
+				state.inStr = false
+			}
+			continue
+		}
+		if r == '"' {
+			state.inStr = true
+			continue
+		}
+		if r == '{' {
+			if state.depth == 0 {
+				state.start = i
+			}
+			state.depth++
+			continue
+		}
+		if r == '}' {
+			if state.depth > 0 {
+				state.depth--
+				if state.depth == 0 && state.start >= 0 {
+					return string(runes[state.start : i+1]), true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
 func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (string, error) {
 	p := strings.TrimSpace(prompt)
 	if p == "" {
@@ -136,23 +186,34 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		deadline = time.Now().Add(120 * time.Second)
 	}
 
-	start := 0
+	// logical start sequence = dropCount + len(buf)
+	startSeq := 0
 	c.rmu.Lock()
-	start = c.buf.Len()
+	startSeq = c.dropCount + c.buf.Len()
 	for {
 		// check new data for prompt
-		cur := c.buf.Len()
-		if cur > start {
-			tail := c.buf.Bytes()[start:cur]
+		curSeq := c.dropCount + c.buf.Len()
+		effStart := startSeq - c.dropCount
+		effCur := curSeq - c.dropCount
+		if effStart < 0 {
+			effStart = 0
+		}
+		if effCur > effStart {
+			tail := c.buf.Bytes()[effStart:effCur]
 			// only scan last 500 bytes
 			if len(tail) > 500 {
 				tail = tail[len(tail)-500:]
 			}
 			if hasPromptFast(tail) {
-				out := make([]byte, cur-start)
-				copy(out, c.buf.Bytes()[start:cur])
+				out := make([]byte, effCur-effStart)
+				copy(out, c.buf.Bytes()[effStart:effCur])
 				c.rmu.Unlock()
 				return string(out), nil
+			}
+			// If a complete JSON object already present, return early
+			if js, ok := extractFirstJSON(string(tail)); ok {
+				c.rmu.Unlock()
+				return js, nil
 			}
 		}
 		// wait with timeout using small sleep, avoid cond.Wait races
