@@ -35,7 +35,7 @@ type Client struct {
 
 	qbin string // 记录 q 可执行路径，便于触发 one-shot 兜底
 
-    updatedCh chan struct{} // 有新输出的事件通知，降低轮询开销
+	updatedCh chan struct{} // 有新输出的事件通知，降低轮询开销
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -78,12 +78,12 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 		return nil, fmt.Errorf("failed to start q chat: %w", err)
 	}
 
-    c := &Client{
-		cmd:     cmd,
-		ptyf:    f,
-		closeCh: make(chan struct{}),
-		qbin:    bin,
-        updatedCh: make(chan struct{}, 1),
+	c := &Client{
+		cmd:       cmd,
+		ptyf:      f,
+		closeCh:   make(chan struct{}),
+		qbin:      bin,
+		updatedCh: make(chan struct{}, 1),
 	}
 
 	// 设置 PTY 大小
@@ -133,15 +133,15 @@ func (c *Client) readLoop() {
 		}
 
 		line := scanner.Text()
-        c.outputMu.Lock()
-        c.output.WriteString(line)
-        c.output.WriteString("\n")
-        c.outputMu.Unlock()
-        // 非阻塞通知有新数据
-        select {
-        case c.updatedCh <- struct{}{}:
-        default:
-        }
+		c.outputMu.Lock()
+		c.output.WriteString(line)
+		c.output.WriteString("\n")
+		c.outputMu.Unlock()
+		// 非阻塞通知有新数据
+		select {
+		case c.updatedCh <- struct{}{}:
+		default:
+		}
 	}
 
 	if err := scanner.Err(); err != nil && !c.closed {
