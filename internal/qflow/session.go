@@ -75,66 +75,69 @@ func New(ctx context.Context, o Opts) (*Session, error) {
 	return &Session{cli: cli, opts: o}, nil
 }
 
-// Slash commands
+// Slash commands - 使用更短的超时时间
 func (s *Session) Load(path string) error {
-	// 管理类命令使用更短超时
-	const mgmtTO = time.Second
+	const mgmtTO = 5 * time.Second // 增加管理命令超时
 	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
 	defer cancel()
 	_, e := s.cli.Ask(ctx, "/load "+quotePath(path), mgmtTO)
 	return e
 }
+
 func (s *Session) Save(path string, force bool) error {
 	cmd := "/save " + quotePath(path)
 	if force {
 		cmd += " -f"
 	}
-	// 使用更短的管理命令超时
-	const mgmtTO = time.Second
+	const mgmtTO = 5 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
 	defer cancel()
 	_, err := s.cli.Ask(ctx, cmd, mgmtTO)
 	return err
 }
+
 func (s *Session) Compact() error {
-	const mgmtTO = time.Second
+	const mgmtTO = 10 * time.Second // 压缩可能需要更长时间
 	ctx, cancel := context.WithTimeout(context.Background(), mgmtTO)
 	defer cancel()
 	_, err := s.cli.Ask(ctx, "/compact", mgmtTO)
 	return err
 }
+
 func (s *Session) Clear() error {
 	return s.ClearWithContext(context.Background())
 }
+
 func (s *Session) ClearWithContext(ctx context.Context) error {
-	// 管理命令短超时（广泛应用）
-	const mgmtTO = time.Second
+	const mgmtTO = 5 * time.Second
 	cctx, cancel := context.WithTimeout(ctx, mgmtTO)
 	defer cancel()
-	// /clear 可能要求 y/n 确认；exec 模式会自动识别提示并发送 'y' 确认
 	_, err := s.cli.Ask(cctx, "/clear", mgmtTO)
 	return err
 }
+
 func (s *Session) ContextClear() error {
 	return s.ContextClearWithContext(context.Background())
 }
+
 func (s *Session) ContextClearWithContext(ctx context.Context) error {
-	const mgmtTO = time.Second
+	const mgmtTO = 5 * time.Second
 	cctx, cancel := context.WithTimeout(ctx, mgmtTO)
 	defer cancel()
 	_, err := s.cli.Ask(cctx, "/context clear", mgmtTO)
 	return err
 }
 
-// Warmup 尝试以自定义超时触发一次提示符（用于启动预热）
+// Warmup 使用更短的超时时间
 func (s *Session) Warmup(ctx context.Context, to time.Duration) error {
 	if to <= 0 {
-		to = 15 * time.Second
+		to = 10 * time.Second // 减少预热超时
 	}
-	// 使用 /help 触发输出与首个提示符，避免 /clear 的交互确认
-	_, err := s.cli.Ask(ctx, "/help", to)
+	// 使用简单的测试提示，避免复杂输出
+	_, err := s.cli.Ask(ctx, "hello", to)
 	return err
 }
+
 func (s *Session) AskOnce(prompt string) (string, error) {
 	return s.AskOnceWithContext(context.Background(), prompt)
 }
@@ -144,7 +147,14 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 	if p == "" {
 		return "", fmt.Errorf("empty prompt")
 	}
-	out, err := s.cli.Ask(ctx, p, s.opts.IdleTO)
+	
+	// 使用更合理的超时时间
+	idleTO := s.opts.IdleTO
+	if idleTO <= 0 {
+		idleTO = 60 * time.Second // 减少默认超时
+	}
+	
+	out, err := s.cli.Ask(ctx, p, idleTO)
 	if err == nil {
 		// 检测仅提示符（可能代表配额/权限问题）
 		if looksLikePromptOnly(out) {
@@ -155,13 +165,19 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 		cleaned := stripPromptEcho(out, p)
 		return cleaned, nil
 	}
+	
 	// 记录错误详情，辅助定位是否误判连接错误
 	log.Printf("qflow: Ask failed: %v", err)
 	if IsConnError(err) {
 		log.Printf("qflow: detected connection error, will close and redial once")
 		// 记录并标记旧连接坏掉，主动关闭后重连一次再重试
 		_ = s.cli.Close()
-		cli, e2 := ttyd.Dial(ctx, ttyd.DialOptions{
+		
+		// 重连时使用更短的超时
+		reconnectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		
+		cli, e2 := ttyd.Dial(reconnectCtx, ttyd.DialOptions{
 			Endpoint:       s.opts.WSURL,
 			NoAuth:         s.opts.NoAuth,
 			Username:       s.opts.WSUser,
@@ -178,7 +194,7 @@ func (s *Session) AskOnceWithContext(ctx context.Context, prompt string) (string
 		})
 		if e2 == nil {
 			s.cli = cli
-			out2, e3 := s.cli.Ask(ctx, p, s.opts.IdleTO)
+			out2, e3 := s.cli.Ask(ctx, p, idleTO)
 			if e3 != nil {
 				return "", e3
 			}
@@ -211,7 +227,7 @@ func stripPromptEcho(out, prompt string) string {
 	}
 
 	// remove exact prompt chunk first
-	// 仅当 prompt 出现在开头附近时，移除“首个”匹配，避免全局删除误伤
+	// 仅当 prompt 出现在开头附近时，移除"首个"匹配，避免全局删除误伤
 	if idx := strings.Index(on, pn); idx >= 0 && idx <= 256 { // 限定在前 256 字节内
 		on = on[:idx] + on[idx+len(pn):]
 	}

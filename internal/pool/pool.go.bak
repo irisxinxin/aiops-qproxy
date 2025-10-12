@@ -1,0 +1,180 @@
+package pool
+
+import (
+	"context"
+	"log"
+	"math"
+	"math/rand"
+	"sync/atomic"
+	"time"
+
+	"aiops-qproxy/internal/qflow"
+)
+
+type Pool struct {
+	size           int
+	slots          chan *qflow.Session
+	opts           qflow.Opts
+	fillingWorkers int32 // 正在后台填充的 goroutine 数量（原子操作）
+	failedAttempts int32 // 连续失败次数（原子操作），用于避免无限重试
+}
+
+func New(ctx context.Context, size int, o qflow.Opts) (*Pool, error) {
+	p := &Pool{
+		size:  size,
+		slots: make(chan *qflow.Session, size),
+		opts:  o,
+	}
+
+	// 预创建：启动后尽快填满池，但使用更短的间隔
+	go func() {
+		for i := 0; i < size; i++ {
+			if i > 0 {
+				// 减少间隔时间，加快预热
+				time.Sleep(time.Duration(i*200) * time.Millisecond)
+			}
+			p.fillOne(context.Background())
+		}
+	}()
+
+	return p, nil
+}
+
+type Lease struct {
+	p  *Pool
+	s  *qflow.Session
+	t0 time.Time
+	// mark bad sessions so we don't put them back
+	broken bool
+}
+
+func (p *Pool) Acquire(ctx context.Context) (*Lease, error) {
+	// 最多尝试两次，避免拿到已被对端回收的旧连接
+	for attempt := 0; attempt < 2; attempt++ {
+		select {
+		case s := <-p.slots:
+			// 轻量健康校验：更短的超时时间
+			hcTO := 200 * time.Millisecond
+			if dl, ok := ctx.Deadline(); ok {
+				if rem := time.Until(dl); rem > 0 && rem < hcTO {
+					hcTO = rem
+				}
+			}
+			hcCtx, cancel := context.WithTimeout(ctx, hcTO)
+			healthy := s.Healthy(hcCtx)
+			cancel()
+			if healthy {
+				return &Lease{p: p, s: s, t0: time.Now()}, nil
+			}
+			// 不健康：关闭并同步创建一个替代
+			_ = s.Close()
+			ns, err := qflow.New(ctx, p.opts)
+			if err == nil {
+				return &Lease{p: p, s: ns, t0: time.Now()}, nil
+			}
+			// 创建失败则继续下一轮（或落入下面的拨号）
+		default:
+			// 没有可用连接：同步拨号
+			ns, err := qflow.New(ctx, p.opts)
+			if err != nil {
+				return nil, err
+			}
+			return &Lease{p: p, s: ns, t0: time.Now()}, nil
+		}
+	}
+	// 理论上不会到这里
+	return nil, context.DeadlineExceeded
+}
+
+func (l *Lease) Session() *qflow.Session { return l.s }
+func (l *Lease) MarkBroken()             { l.broken = true }
+func (l *Lease) Release() {
+	if l.broken {
+		// Replace it in background
+		_ = l.s.Close()
+		// 限制并发 fillOne goroutine 数量，避免泄漏
+		current := atomic.LoadInt32(&l.p.fillingWorkers)
+		if current < int32(l.p.size) { // 最多同时有 size 个 goroutine 在填充
+			atomic.AddInt32(&l.p.fillingWorkers, 1)
+			go func() {
+				defer atomic.AddInt32(&l.p.fillingWorkers, -1)
+				l.p.fillOne(context.Background())
+			}()
+		} else {
+			log.Printf("pool: skipping fillOne, already %d workers running", current)
+		}
+		return
+	}
+	// 非阻塞归还，防止因通道已满导致调用方卡死
+	select {
+	case l.p.slots <- l.s:
+	default:
+		_ = l.s.Close()
+		log.Printf("pool: slots full, dropping session on release")
+	}
+}
+
+func (p *Pool) fillOne(ctx context.Context) {
+	// 检查连续失败次数，避免无限重试
+	failed := atomic.LoadInt32(&p.failedAttempts)
+	if failed > 10 { // 减少最大失败次数
+		log.Printf("pool: too many consecutive failures (%d), refusing to retry", failed)
+		return
+	}
+
+	backoff := 200 * time.Millisecond // 减少初始退避时间
+	maxAttempts := 5 // 减少最大重试次数
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		log.Printf("pool: attempting to create session (attempt %d/%d, total_failures=%d)", attempt, maxAttempts, failed)
+		
+		// 为每次拨号设置更短的超时，避免长时间阻塞
+		dialTO := 30 * time.Second // 减少拨号超时
+		attemptCtx, cancel := context.WithTimeout(ctx, dialTO)
+		s, err := qflow.New(attemptCtx, p.opts)
+		cancel()
+		
+		if err == nil {
+			log.Printf("pool: session created successfully")
+			// 重置失败计数
+			atomic.StoreInt32(&p.failedAttempts, 0)
+			select {
+			case p.slots <- s:
+				log.Printf("pool: session added to pool")
+				return
+			case <-ctx.Done():
+				_ = s.Close()
+				return
+			}
+		}
+
+		// 增加失败计数
+		atomic.AddInt32(&p.failedAttempts, 1)
+
+		sleep := withJitter(backoff)
+		if backoff < 2*time.Second { // 减少最大退避时间
+			backoff = time.Duration(math.Min(float64(backoff*2), float64(2*time.Second)))
+		}
+		log.Printf("pool: dial failed (attempt %d/%d): %v; retry in %v", attempt, maxAttempts, err, sleep)
+
+		if attempt == maxAttempts {
+			log.Printf("pool: max attempts reached, giving up (total_failures=%d)", atomic.LoadInt32(&p.failedAttempts))
+			return
+		}
+
+		select {
+		case <-time.After(sleep):
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func withJitter(d time.Duration) time.Duration {
+	delta := d / 5
+	return d - delta + time.Duration(rand.Int63n(int64(2*delta)))
+}
+
+// Stats returns (ready,size).
+func (p *Pool) Stats() (int, int) {
+	return len(p.slots), p.size
+}

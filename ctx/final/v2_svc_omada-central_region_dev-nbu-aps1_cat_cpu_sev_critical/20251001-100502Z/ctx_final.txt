@@ -1,0 +1,109 @@
+### AIOps reusable context
+- service: omada-central
+- region: dev-nbu-aps1
+- category: cpu
+- severity: critical
+- title: omada-central container CPU usage is too high
+- duration: 15m
+- window: 5m
+- threshold: 0.9
+
+#### SOP (selected)
+### [SOP] Preloaded knowledge (high priority)
+#### CPU 告警处理
+- Precheck: 使用 victoriametrics MCP 查询: sum(rate(container_cpu_usage_seconds_total{container!="POD",container!="", container!="istio-proxy", image!="",pod=~"omada-central.*", namespace=~"sdn5"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!="POD",pod=~"omada-central.*", namespace=~"sdn5", resource="cpu"} > 0) by (pod, container)>0.9 (告警自带表达式)
+- Precheck: 使用 awslabseks_mcp_server 检查 Pod 状态和资源限制
+- Action: 1. 扩容 Pod 数量
+- Action: 2. 增加 CPU 资源限制
+- Action: 3. 检查是否有异常进程
+- Note: CPU 使用率过高时的处理步骤
+#### CloudWatch 指标检查
+- Precheck: 使用 awslabscloudwatch_mcp_server 查看 AWS 资源指标
+- Action: 1. 对比 CloudWatch 和 K8s 指标
+- Action: 2. 检查 AWS 资源健康状况
+- Action: 3. 分析跨云指标差异
+- Note: CloudWatch 指标监控和对比
+
+#### Model Output (cleaned)
+I'll analyze this CPU alert for the omada-central container by executing the necessary checks to determine the root cause.
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.110s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "container_cpu_usage_seconds_total{container=\"omada-central\", namespace=\"sdn5\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.35s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "up{job=~\".*omada.*\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.30s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_container_resource_limits{container=\"omada-central\", namespace=\"sdn5\", resource=\"cpu\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.5s
+
+
+
+
+🛠️  Using tool: series (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running series with the param:
+ ⋮  {
+ ⋮    "match": "{__name__=~\"container_cpu_usage_seconds_total|kube_pod_container_resource_limits\", namespace=\"sdn5\", container=\"omada-central\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.3s
+
+json
+{
+  "root_cause": "Alert data indicates stale or missing metrics - the omada-central container in sdn5 namespace appears to no longer exist or has been terminated, causing the alert to fire with outdated threshold breach data",
+  "evidence": [
+    "No current CPU usage metrics found for container=omada-central in namespace=sdn5",
+    "No resource limit metrics found for the specified pod omada-central-5.15.16041-56f89cbc98-vxbzh",
+    "Alert shows current_value=0.92 but queries return empty results, indicating stale alert state",
+    "Multiple omada-central instances found in other namespaces (omada-central, staging-omada-central, uat3-omada-central) but none in sdn5"
+  ],
+  "confidence": 0.95,
+  "suggested_actions": [
+    "Verify if omada-central pod was intentionally terminated or migrated from sdn5 namespace",
+    "Check if the pod has been rescheduled to a different namespace or if deployment was updated",
+    "Clear stale alert state if the pod no longer exists in the monitored namespace"
+  ],
+  "analysis_summary": "Investigation revealed that the alert is firing based on stale data. The omada-central container that triggered the CPU usage alert (0.92 > 0.9 threshold) no longer exists in the sdn5 namespace. Current metrics queries return empty results, while the alert system still references the old pod omada-central-5.15.16041-56f89cbc98-vxbzh. This suggests the pod was terminated, rescheduled, or the deployment was updated, but the alert state wasn't properly cleared."
+}

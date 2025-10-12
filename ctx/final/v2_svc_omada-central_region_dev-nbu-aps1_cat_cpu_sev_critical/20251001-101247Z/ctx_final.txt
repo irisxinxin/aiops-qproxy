@@ -1,0 +1,111 @@
+### AIOps reusable context
+- service: omada-central
+- region: dev-nbu-aps1
+- category: cpu
+- severity: critical
+- title: omada-central container CPU usage is too high
+- duration: 15m
+- window: 5m
+- threshold: 0.9
+
+#### SOP (selected)
+### [SOP] Preloaded knowledge (high priority)
+#### CPU 告警处理
+- Precheck: 使用 victoriametrics MCP 查询: sum(rate(container_cpu_usage_seconds_total{container!="POD",container!="", container!="istio-proxy", image!="",pod=~"omada-central.*", namespace=~"sdn5"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!="POD",pod=~"omada-central.*", namespace=~"sdn5", resource="cpu"} > 0) by (pod, container)>0.9 (告警自带表达式)
+- Precheck: 使用 awslabseks_mcp_server 检查 Pod 状态和资源限制
+- Action: 1. 扩容 Pod 数量
+- Action: 2. 增加 CPU 资源限制
+- Action: 3. 检查是否有异常进程
+- Note: CPU 使用率过高时的处理步骤
+#### CloudWatch 指标检查
+- Precheck: 使用 awslabscloudwatch_mcp_server 查看 AWS 资源指标
+- Action: 1. 对比 CloudWatch 和 K8s 指标
+- Action: 2. 检查 AWS 资源健康状况
+- Action: 3. 分析跨云指标差异
+- Note: CloudWatch 指标监控和对比
+
+#### Model Output (cleaned)
+I'll analyze this CPU alert for the omada-central container by executing the necessary prechecks and gathering comprehensive data.
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.7s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.7s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.28s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "up{job=~\".*omada.*\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.158s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_status_phase{pod=~\"omada-central.*\", namespace=~\"sdn5\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.813s
+
+json
+{
+  "root_cause": "Metrics collection failure for omada-central container in sdn5 namespace - no CPU usage or resource limit data available despite alert firing",
+  "evidence": [
+    "Alert expression query returns empty results: sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)",
+    "No container_cpu_usage_seconds_total metrics found for omada-central pods in sdn5 namespace",
+    "No kube_pod_container_resource_limits metrics found for omada-central pods in sdn5 namespace",
+    "Pod status metrics also unavailable: kube_pod_status_phase query returns empty for omada-central in sdn5",
+    "Multiple omada-central services are running in other namespaces (omada-central, staging-omada-central, uat3-omada-central) with healthy 'up' status, but sdn5 namespace shows no metrics"
+  ],
+  "confidence": 0.95,
+  "suggested_actions": [
+    "Check if metrics collection agents (node-exporter, kube-state-metrics) are running in sdn5 namespace",
+    "Verify if omada-central pod actually exists in sdn5 namespace - pod may have been terminated or moved",
+    "Investigate VictoriaMetrics scraping configuration for sdn5 namespace targets",
+    "Check if the alert is based on stale data - the pod omada-central-5.15.16041-56f89cbc98-vxbzh may no longer exist"
+  ],
+  "analysis_summary": "Alert indicates high CPU usage (0.92 > 0.9 threshold) for omada-central container, but comprehensive metrics queries show no data available for the target pod/namespace combination. This suggests either a metrics collection issue, pod termination, or stale alert data. The absence of both CPU metrics and pod status metrics points to a fundamental monitoring gap rather than an actual resource constraint."
+}

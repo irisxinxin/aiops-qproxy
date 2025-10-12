@@ -1,0 +1,15 @@
+### AIOps reusable context
+- service: 
+- region: 
+- category: 
+- severity: 
+
+#### Model Output (cleaned)
+json
+{
+  "root_cause": "Insufficient alert data provided - only test payload received",
+  "evidence": ["Alert contains only test field with value 'simple'", "No actual alert metrics, timestamps, or service information available", "Cannot perform meaningful root cause analysis without proper alert data"],
+  "confidence": 0.95,
+  "suggested_actions": ["Verify alert pipeline is sending complete alert data", "Check alert formatting and required fields", "Provide actual production alert with metrics and context"],
+  "analysis_summary": "Analysis attempted but alert data is incomplete test payload. No MCP server queries executed due to lack of meaningful alert information to investigate."
+}

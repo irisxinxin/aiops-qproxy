@@ -1,0 +1,77 @@
+### AIOps reusable context
+- service: sdn5
+- region: dev-nbu-aps1
+- category: cpu
+- severity: critical
+- title: sdn5 container CPU usage is too high
+- duration: 15m
+- window: 5m
+- threshold: 0.9
+
+#### Model Output (cleaned)
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.11s
+
+
+
+
+🛠️  Using tool: query_range (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query_range with the param:
+ ⋮  {
+ ⋮    "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)",
+ ⋮    "start": "1759394686",
+ ⋮    "end": "1759395586",
+ ⋮    "step": "60s"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.6s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.37s
+
+{
+ "tool_calls": [
+   {
+     "tool": "victoriametrics",
+     "action": "query",
+     "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)",
+     "result": "Current CPU usage: 8.4% for pod 98n7b and 8.2% for pod qnms2, both well below 90% threshold"
+   },
+   {
+     "tool": "victoriametrics", 
+     "action": "query_range",
+     "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)",
+     "result": "15-minute historical data shows consistent CPU usage around 8-8.7%, never approaching 90% threshold"
+   },
+   {
+     "tool": "victoriametrics",
+     "action": "query", 
+     "query": "kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"}",
+     "result": "CPU limits confirmed: 0.3 cores for omada-device-gateway containers, 0.15 cores for istio-proxy"
+   }
+ ],
+ "root_cause": "False positive alert - alert metadata shows current_value of 0.92 (92%) but actual metrics show CPU usage consistently around 8.4%, indicating stale or incorrect alert state",
+ "evidence": ["Current CPU usage is 8.4% and 8.2% for both pods, far below 90% threshold", "Historical data over 15 minutes shows consistent usage between 8-8.7%", "Alert metadata claims 92% usage but real-time metrics contradict this", "No evidence of CPU spikes or resource contention in recent timeframe"],
+ "confidence": 0.95,
+ "suggested_actions": ["Verify alert manager configuration and metric collection", "Check for stale alert states in monitoring system", "Review alert evaluation logic for potential timing issues", "Investigate if alert metadata is using cached or outdated values"],
+ "analysis_summary": "Alert appears to be a false positive with metadata showing 92% CPU usage while actual metrics consistently show 8.4% usage, suggesting monitoring system issue rather than actual resource problem"
+}

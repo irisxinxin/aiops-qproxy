@@ -1,0 +1,2497 @@
+{
+  "conversation_id": "924edb51-6c56-4241-824c-5ace9949a2bc",
+  "next_message": null,
+  "history": [
+    {
+      "user": {
+        "additional_context": "",
+        "env_context": {
+          "env_state": {
+            "operating_system": "linux",
+            "current_working_directory": "/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4",
+            "environment_variables": []
+          }
+        },
+        "content": {
+          "Prompt": {
+            "prompt": "我想测试下 context add的功能"
+          }
+        },
+        "timestamp": "2025-10-07T07:23:25.321547297Z",
+        "images": null
+      },
+      "assistant": {
+        "ToolUse": {
+          "message_id": "007ecf0b-e614-45f4-a778-63b1af016194",
+          "content": "我来帮你测试 context add 功能。根据 README，这个项目会自动添加基础上下文和匹配的可重用上下文。让我先检查当前的目录结构：",
+          "tool_uses": [
+            {
+              "id": "tooluse_I0YeiUTkQ0uUFQY-7G8IDQ",
+              "name": "fs_read",
+              "orig_name": "fs_read",
+              "args": {
+                "operations": [
+                  {
+                    "mode": "Directory",
+                    "path": ".",
+                    "depth": 2
+                  }
+                ]
+              },
+              "orig_args": {
+                "operations": [
+                  {
+                    "mode": "Directory",
+                    "path": ".",
+                    "depth": 2
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "request_metadata": {
+        "request_id": "b4fb9165-9169-495b-bd2f-b29a26e73f6d",
+        "message_id": "007ecf0b-e614-45f4-a778-63b1af016194",
+        "request_start_timestamp_ms": 1759821805322,
+        "stream_end_timestamp_ms": 1759821810841,
+        "time_to_first_chunk": {
+          "secs": 3,
+          "nanos": 556253075
+        },
+        "time_between_chunks": [
+          {
+            "secs": 0,
+            "nanos": 26900
+          },
+          {
+            "secs": 0,
+            "nanos": 7314
+          },
+          {
+            "secs": 0,
+            "nanos": 62368978
+          },
+          {
+            "secs": 0,
+            "nanos": 132173595
+          },
+          {
+            "secs": 0,
+            "nanos": 5973129
+          },
+          {
+            "secs": 0,
+            "nanos": 54080138
+          },
+          {
+            "secs": 0,
+            "nanos": 36614374
+          },
+          {
+            "secs": 0,
+            "nanos": 135365485
+          },
+          {
+            "secs": 0,
+            "nanos": 1207856
+          },
+          {
+            "secs": 0,
+            "nanos": 27202015
+          },
+          {
+            "secs": 0,
+            "nanos": 32456841
+          },
+          {
+            "secs": 0,
+            "nanos": 31914977
+          },
+          {
+            "secs": 0,
+            "nanos": 65161163
+          },
+          {
+            "secs": 0,
+            "nanos": 65686702
+          },
+          {
+            "secs": 0,
+            "nanos": 30992720
+          },
+          {
+            "secs": 0,
+            "nanos": 230301098
+          },
+          {
+            "secs": 0,
+            "nanos": 115676761
+          },
+          {
+            "secs": 0,
+            "nanos": 94299721
+          },
+          {
+            "secs": 0,
+            "nanos": 2951867
+          },
+          {
+            "secs": 0,
+            "nanos": 1646829
+          },
+          {
+            "secs": 0,
+            "nanos": 3125705
+          },
+          {
+            "secs": 0,
+            "nanos": 111399509
+          },
+          {
+            "secs": 0,
+            "nanos": 658013723
+          },
+          {
+            "secs": 0,
+            "nanos": 14362
+          },
+          {
+            "secs": 0,
+            "nanos": 1474846
+          },
+          {
+            "secs": 0,
+            "nanos": 529037
+          },
+          {
+            "secs": 0,
+            "nanos": 684216
+          },
+          {
+            "secs": 0,
+            "nanos": 67670
+          },
+          {
+            "secs": 0,
+            "nanos": 888908
+          },
+          {
+            "secs": 0,
+            "nanos": 368149
+          },
+          {
+            "secs": 0,
+            "nanos": 673023
+          },
+          {
+            "secs": 0,
+            "nanos": 441259
+          },
+          {
+            "secs": 0,
+            "nanos": 59001364
+          },
+          {
+            "secs": 0,
+            "nanos": 232888
+          },
+          {
+            "secs": 0,
+            "nanos": 66
+          }
+        ],
+        "user_prompt_length": 195,
+        "response_size": 229,
+        "chat_conversation_type": "ToolUse",
+        "tool_use_ids_and_names": [
+          [
+            "tooluse_I0YeiUTkQ0uUFQY-7G8IDQ",
+            "fs_read"
+          ]
+        ],
+        "model_id": "claude-sonnet-4",
+        "message_meta_tags": []
+      }
+    },
+    {
+      "user": {
+        "additional_context": "",
+        "env_context": {
+          "env_state": {
+            "operating_system": "linux",
+            "current_working_directory": "/home/ubuntu/huixin/aiops/aiops-qproxy-v2.4",
+            "environment_variables": []
+          }
+        },
+        "content": {
+          "ToolUseResults": {
+            "tool_use_results": [
+              {
+                "tool_use_id": "tooluse_I0YeiUTkQ0uUFQY-7G8IDQ",
+                "content": [
+                  {
+                    "Text": "-rw-rw-r-- 1 1000 1000 603 Sep 26 15:39 ./.env.local\ndrwxrwxr-x 8 1000 1000 4096 Oct 02 08:31 ./.git\ndrwxr-xr-x 2 1000 1000 4096 Sep 30 01:38 ./systemd\ndrwxr-xr-x 4 1000 1000 4096 Oct 02 08:30 ./ctx\ndrwxr-xr-x 2 1000 1000 4096 Sep 30 03:06 ./scripts\n-rw-r--r-- 1 1000 1000 8196 Sep 25 13:24 ./.DS_Store\ndrwxr-xr-x 3 1000 1000 4096 Oct 01 09:19 ./cmd\ndrwxr-xr-x 3 1000 1000 4096 Sep 30 01:31 ./alerts\n-rw-r--r-- 1 1000 1000 29 Sep 25 14:11 ./go.mod\ndrwxr-xr-x 2 1000 1000 36864 Oct 07 02:12 ./logs\ndrwxr-xr-x 2 1000 1000 4096 Oct 02 08:31 ./bin\n-rw-rw-r-- 1 1000 1000 1398 Sep 30 03:38 ./README.md\n-rw-rw-r-- 1 1000 1000 163 Oct 01 02:17 ./.gitignore\n-rw-rw-r-- 1 1000 1000 286 Sep 26 15:50 ./.git/config\n-rw-rw-r-- 1 1000 1000 2882 Oct 02 08:31 ./.git/index\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:48 ./.git/hooks\n-rw-rw-r-- 1 1000 1000 41 Oct 02 08:30 ./.git/ORIG_HEAD\ndrwxrwxr-x 162 1000 1000 4096 Oct 02 08:30 ./.git/objects\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:48 ./.git/branches\n-rw-rw-r-- 1 1000 1000 73 Sep 26 06:48 ./.git/description\n-rw-rw-r-- 1 1000 1000 19 Oct 02 03:42 ./.git/COMMIT_EDITMSG\n-rw-rw-r-- 1 1000 1000 94 Oct 02 08:30 ./.git/FETCH_HEAD\ndrwxrwxr-x 3 1000 1000 4096 Sep 26 06:49 ./.git/logs\ndrwxrwxr-x 5 1000 1000 4096 Sep 26 06:53 ./.git/refs\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:48 ./.git/info\n-rw-rw-r-- 1 1000 1000 21 Sep 26 06:49 ./.git/HEAD\n-rw-rw-r-- 1 1000 1000 1026 Sep 30 01:38 ./systemd/aiops-qproxy-runner.service\n-rw-rw-r-- 1 1000 1000 1872 Oct 02 08:30 ./ctx/task_instructions.md\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:19 ./ctx/sop\ndrwxr-xr-x 5 1000 1000 4096 Oct 02 07:20 ./ctx/final\n-rwxrwxr-x 1 1000 1000 3869 Sep 30 02:29 ./scripts/deploy-http.sh\n-rwxrwxr-x 1 1000 1000 5267 Sep 30 01:38 ./scripts/test_sop_matching.sh\n-rwxrwxr-x 1 1000 1000 2423 Sep 30 01:38 ./scripts/test-http.sh\n-rwxrwxr-x 1 1000 1000 233 Sep 26 15:39 ./scripts/clean_state.sh\n-rwxrwxr-x 1 1000 1000 2974 Sep 30 01:38 ./scripts/test-single-alert.sh\n-rwxrwxr-x 1 1000 1000 4236 Sep 30 02:29 ./scripts/deploy-production.sh\n-rwxrwxr-x 1 1000 1000 1374 Sep 26 16:45 ./scripts/clean-logs.sh\ndrwxr-xr-x 2 1000 1000 4096 Oct 02 08:30 ./cmd/runner\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:40 ./alerts/dev\n-rw-r--r-- 1 1000 1000 32264 Sep 30 10:29 ./logs/20250930-102957Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2473 Oct 01 08:03 ./logs/20251001-080301Z_v2_svc_test_region_test_cat_test_sev_test_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 02 03:30 ./logs/20251002-033017Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3585 Oct 06 01:46 ./logs/20251006-014605Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 5022 Oct 02 08:49 ./logs/20251002-084934Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4790 Oct 01 10:07 ./logs/20251001-100719Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3584 Oct 06 03:05 ./logs/20251006-030510Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 11378 Oct 01 08:04 ./logs/20251001-080433Z_v2_svc_test_region_test_cat_test_sev_test_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3611 Oct 01 10:06 ./logs/20251001-100659Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3610 Oct 07 02:08 ./logs/20251007-020837Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2396 Oct 01 02:17 ./logs/20251001-021758Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2504 Oct 01 08:19 ./logs/20251001-081946Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3522 Oct 01 10:09 ./logs/20251001-100954Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4465 Sep 30 03:48 ./logs/20250930-034833Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2426 Oct 01 08:09 ./logs/20251001-080937Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3780 Oct 01 10:06 ./logs/20251001-100659Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3618 Oct 02 07:15 ./logs/20251002-071535Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3566 Sep 30 03:58 ./logs/20250930-035839Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3778 Oct 01 10:15 ./logs/20251001-101547Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:14 ./logs/20250930-101447Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2346 Oct 01 08:04 ./logs/20251001-080433Z_v2_svc_test_region_test_cat_test_sev_test_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:24 ./logs/20250930-102453Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 110 Oct 01 08:03 ./logs/20251001-080320Z_v2_svc_test_region_test_cat_test_sev_test_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2426 Oct 01 08:18 ./logs/20251001-081807Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3789 Oct 02 07:20 ./logs/20251002-072038Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2387 Oct 01 07:56 ./logs/20251001-075629Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4232 Oct 01 10:04 ./logs/20251001-100409Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 38044 Oct 01 08:17 ./logs/20251001-081710Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 09:13 ./logs/20250930-091359Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:28 ./logs/20250930-102851Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 31518 Oct 01 02:23 ./logs/20251001-022333Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 32422 Sep 30 09:19 ./logs/20250930-091952Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4232 Oct 01 09:57 ./logs/20251001-095733Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4232 Oct 01 10:01 ./logs/20251001-100125Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2183 Oct 01 10:15 ./logs/20251001-101523Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2387 Oct 01 07:55 ./logs/20251001-075512Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:19 ./logs/20250930-091943Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2901 Oct 02 07:19 ./logs/20251002-071949Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3610 Oct 02 07:42 ./logs/20251002-074256Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3791 Oct 01 10:08 ./logs/20251001-100818Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 09:18 ./logs/20250930-091840Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2910 Oct 02 08:49 ./logs/20251002-084924Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 6284 Sep 26 16:57 ./logs/20250926-165720Z_v2_svc_vms-ai-manager_region_dev-nbu-aps1_cat_memory_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 33217 Sep 30 04:08 ./logs/20250930-040808Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 37186 Oct 01 01:32 ./logs/20251001-013252Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3523 Oct 02 07:33 ./logs/20251002-073302Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 1587 Oct 01 10:09 ./logs/20251001-100959Z_v2_svc__region__cat__sev__prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2473 Oct 01 10:10 ./logs/20251001-101051Z_v2_svc__region__cat__sev__prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:52 ./logs/20250930-095211Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 16056 Oct 01 04:00 ./logs/20251001-040049Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 31986 Sep 30 09:53 ./logs/20250930-095305Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2507 Oct 01 08:21 ./logs/20251001-082105Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 74565 Sep 30 02:09 ./logs/20250930-020914Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3672 Oct 01 09:22 ./logs/20251001-092216Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 636 Sep 30 11:04 ./logs/20250930-110427Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 66 Oct 01 08:02 ./logs/20251001-080222Z_v2_svc_test_region_test_cat_test_sev_test_context_debug.txt\n-rw-r--r-- 1 1000 1000 2426 Oct 01 08:04 ./logs/20251001-080447Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 636 Sep 30 09:53 ./logs/20250930-095305Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:43 ./logs/20250930-104304Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3294 Oct 01 07:58 ./logs/20251001-075834Z_v2_svc_test_region_test_cat_test_sev_test_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:18 ./logs/20250930-091821Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3403 Oct 02 08:49 ./logs/20251002-084924Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:20 ./logs/20250930-092054Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3613 Oct 02 07:34 ./logs/20251002-073411Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 635 Sep 30 09:20 ./logs/20250930-092015Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3312 Oct 01 09:57 ./logs/20251001-095702Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:17 ./logs/20251001-101734Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3730 Oct 02 07:33 ./logs/20251002-073302Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3609 Oct 02 07:20 ./logs/20251002-072038Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3672 Oct 01 08:27 ./logs/20251001-082752Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 9068 Oct 01 04:03 ./logs/20251001-040325Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2846 Oct 03 01:42 ./logs/20251003-014211Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:13 ./logs/20250930-101353Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 262 Oct 01 10:17 ./logs/20251001-101751Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 32820 Sep 30 09:20 ./logs/20250930-092015Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:17 ./logs/20250930-091735Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3693 Oct 01 07:47 ./logs/20251001-074704Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4232 Oct 01 09:56 ./logs/20251001-095636Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:18 ./logs/20250930-091810Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 42134 Sep 30 04:00 ./logs/20250930-040054Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 34099 Oct 01 02:23 ./logs/20251001-022333Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:29 ./logs/20250930-102930Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 261 Oct 01 10:01 ./logs/20251001-100125Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4702 Oct 06 03:05 ./logs/20251006-030510Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3510 Oct 02 07:33 ./logs/20251002-073317Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 61484 Sep 30 02:34 ./logs/20250930-023455Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3818 Oct 02 08:03 ./logs/20251002-080355Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 262 Oct 01 10:15 ./logs/20251001-101547Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:34 ./logs/20250930-103444Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 42018 Oct 01 08:11 ./logs/20251001-081137Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3757 Oct 02 08:50 ./logs/20251002-085020Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 952 Oct 01 10:10 ./logs/20251001-101026Z_v2_svc__region__cat__sev__stdout.jsonl\n-rw-r--r-- 1 1000 1000 4246 Oct 02 08:59 ./logs/20251002-085922Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4246 Oct 02 08:48 ./logs/20251002-084853Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 31940 Sep 30 10:25 ./logs/20250930-102546Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4716 Oct 06 01:46 ./logs/20251006-014605Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3561 Oct 02 09:00 ./logs/20251002-090009Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 10264 Sep 30 04:00 ./logs/20250930-040054Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3930 Oct 01 10:15 ./logs/20251001-101523Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4089 Oct 07 02:11 ./logs/20251007-021157Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4246 Oct 03 01:41 ./logs/20251003-014139Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 31952 Sep 30 10:43 ./logs/20250930-104304Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 525 Oct 01 03:59 ./logs/20251001-035906Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3972 Oct 02 07:15 ./logs/20251002-071535Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3452 Oct 01 10:10 ./logs/20251001-101026Z_v2_svc__region__cat__sev__stderr.jsonl\n-rw-r--r-- 1 1000 1000 55601 Sep 30 03:16 ./logs/20250930-031620Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3704 Oct 02 03:31 ./logs/20251002-033111Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 09:13 ./logs/20250930-091300Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3408 Oct 07 02:12 ./logs/20251007-021226Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 11995 Oct 01 07:58 ./logs/20251001-075834Z_v2_svc_test_region_test_cat_test_sev_test_stderr.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 09:19 ./logs/20250930-091952Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 262 Oct 01 09:22 ./logs/20251001-092216Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4840 Oct 07 02:05 ./logs/20251007-020559Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:15 ./logs/20250930-101503Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 12877 Oct 01 09:15 ./logs/20251001-091502Z_v2_svc_test_region_test_cat_test_sev_test_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2427 Oct 01 01:27 ./logs/20251001-012720Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:14 ./logs/20251001-101448Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3778 Oct 01 10:17 ./logs/20251001-101751Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 46354 Oct 01 08:17 ./logs/20251001-081710Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2507 Oct 01 08:26 ./logs/20251001-082607Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3692 Oct 01 10:16 ./logs/20251001-101657Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3608 Oct 01 10:12 ./logs/20251001-101247Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4465 Sep 30 03:41 ./logs/20250930-034123Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:29 ./logs/20250930-102957Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:11 ./logs/20251001-101122Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3729 Oct 01 10:09 ./logs/20251001-100954Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 378 Oct 01 08:03 ./logs/20251001-080354Z_v2_svc_test_region_test_cat_test_sev_test_merge_debug.txt\n-rw-r--r-- 1 1000 1000 3403 Oct 03 01:42 ./logs/20251003-014211Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 266 Sep 26 16:57 ./logs/20250926-165720Z_v2_svc_vms-ai-manager_region_dev-nbu-aps1_cat_memory_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3888 Oct 02 07:34 ./logs/20251002-073411Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4089 Oct 07 02:07 ./logs/20251007-020744Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3510 Oct 02 08:03 ./logs/20251002-080303Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4408 Sep 30 02:45 ./logs/20250930-024511Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2427 Oct 01 07:43 ./logs/20251001-074332Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 39525 Sep 30 02:51 ./logs/20250930-025129Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 32327 Sep 30 10:29 ./logs/20250930-102930Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 6097 Oct 07 02:08 ./logs/20251007-020837Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4465 Sep 30 03:07 ./logs/20250930-030714Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3672 Oct 01 09:23 ./logs/20251001-092301Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 5052 Oct 06 01:45 ./logs/20251006-014520Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4246 Oct 02 08:37 ./logs/20251002-083702Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 3608 Oct 01 10:05 ./logs/20251001-100502Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:15 ./logs/20251001-101530Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 262 Oct 01 10:16 ./logs/20251001-101657Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 07:42 ./logs/20250930-074255Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 22640 Oct 01 09:15 ./logs/20251001-091502Z_v2_svc_test_region_test_cat_test_sev_test_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4275 Oct 01 10:12 ./logs/20251001-101247Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 56610 Sep 30 03:16 ./logs/20250930-031620Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3510 Oct 02 07:32 ./logs/20251002-073209Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 152 Oct 01 08:03 ./logs/20251001-080320Z_v2_svc_test_region_test_cat_test_sev_test_context_debug.txt\n-rw-r--r-- 1 1000 1000 110 Oct 01 08:03 ./logs/20251001-080354Z_v2_svc_test_region_test_cat_test_sev_test_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 18174 Oct 01 04:03 ./logs/20251001-040325Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 635 Sep 30 09:21 ./logs/20250930-092157Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 9708 Oct 01 04:00 ./logs/20251001-040049Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3617 Oct 02 03:31 ./logs/20251002-033111Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4065 Oct 02 07:42 ./logs/20251002-074256Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:11 ./logs/20251001-101144Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4834 Oct 02 07:14 ./logs/20251002-071437Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 2427 Sep 30 04:07 ./logs/20250930-040712Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 31936 Sep 30 10:15 ./logs/20250930-101555Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 31987 Sep 30 10:14 ./logs/20250930-101447Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:42 ./logs/20250930-104210Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4745 Oct 02 08:50 ./logs/20251002-085020Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 32684 Sep 30 09:20 ./logs/20250930-092058Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 67369 Sep 30 02:51 ./logs/20250930-025129Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 110 Oct 01 08:02 ./logs/20251001-080222Z_v2_svc_test_region_test_cat_test_sev_test_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 637 Sep 30 04:08 ./logs/20250930-040808Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 10:28 ./logs/20250930-102811Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4220 Oct 01 09:22 ./logs/20251001-092216Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4164 Oct 01 10:08 ./logs/20251001-100818Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4511 Oct 01 10:06 ./logs/20251001-100606Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 31970 Sep 30 10:35 ./logs/20250930-103536Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:15 ./logs/20250930-101555Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 152 Oct 01 08:03 ./logs/20251001-080354Z_v2_svc_test_region_test_cat_test_sev_test_context_debug.txt\n-rw-r--r-- 1 1000 1000 32020 Sep 30 09:13 ./logs/20250930-091359Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3609 Oct 02 08:03 ./logs/20251002-080355Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 354 Oct 01 10:01 ./logs/20251001-100125Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3585 Oct 02 08:37 ./logs/20251002-083749Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 36591 Oct 01 08:11 ./logs/20251001-081137Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 30483 Sep 30 02:34 ./logs/20250930-023455Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:25 ./logs/20250930-102546Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 3691 Oct 01 10:05 ./logs/20251001-100502Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 635 Sep 30 09:20 ./logs/20250930-092058Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 634 Sep 30 07:43 ./logs/20250930-074350Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2933 Oct 07 02:12 ./logs/20251007-021226Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 2375 Sep 30 11:03 ./logs/20250930-110336Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 141 Sep 30 02:45 ./logs/20250930-024511Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 4790 Oct 01 10:08 ./logs/20251001-100859Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 4246 Oct 07 02:05 ./logs/20251007-020506Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 32208 Sep 30 09:18 ./logs/20250930-091840Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 636 Sep 30 10:35 ./logs/20250930-103536Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4580 Oct 02 09:00 ./logs/20251002-090009Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4683 Oct 02 08:37 ./logs/20251002-083749Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 1351 Oct 01 07:51 ./logs/20251001-075136Z_v2_svc__region__cat__sev__prompt_debug.txt\n-rw-r--r-- 1 1000 1000 919 Oct 01 09:57 ./logs/20251001-095702Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 4834 Oct 01 10:16 ./logs/20251001-101640Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 11021 Oct 01 08:03 ./logs/20251001-080301Z_v2_svc_test_region_test_cat_test_sev_test_stderr.jsonl\n-rw-r--r-- 1 1000 1000 31991 Sep 30 11:04 ./logs/20250930-110427Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3499 Oct 07 02:05 ./logs/20251007-020559Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 32091 Sep 30 07:43 ./logs/20250930-074350Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 3510 Oct 02 07:41 ./logs/20251002-074154Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 5052 Oct 06 03:04 ./logs/20251006-030424Z_v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 1420 Oct 01 08:28 ./logs/20251001-082837Z_v2_svc_test_region_test_cat_test_sev_test_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 63661 Sep 30 02:09 ./logs/20250930-020914Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 2514 Oct 01 07:37 ./logs/20251001-073703Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 42772 Oct 01 01:32 ./logs/20251001-013252Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stdout.jsonl\n-rw-r--r-- 1 1000 1000 32008 Sep 30 09:21 ./logs/20250930-092157Z_v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical_stderr.jsonl\n-rw-r--r-- 1 1000 1000 110 Oct 01 07:57 ./logs/20251001-075743Z_v2_svc_test_region_test_cat_test_sev_test_prompt_debug.txt\n-rw-r--r-- 1 1000 1000 613 Oct 01 04:01 ./logs/20251001-040128Z_v2_svc_test-service_region_us-west-2_cat_cpu_sev_critical_prompt_debug.txt\n-rwxrwxr-x 1 1000 1000 184 Oct 01 10:02 ./bin/q-mock\n-rwxrwxr-x 1 1000 1000 8075623 Oct 02 08:31 ./bin/qproxy-runner\n-rwxr-xr-x 1 1000 1000 2487408 Sep 25 14:47 ./bin/qmock\n-rwxrwxr-x 1 1000 1000 2783 Sep 26 06:48 ./.git/hooks/push-to-checkout.sample\n-rwxrwxr-x 1 1000 1000 544 Sep 26 06:48 ./.git/hooks/pre-receive.sample\n-rwxrwxr-x 1 1000 1000 2308 Sep 26 06:48 ./.git/hooks/sendemail-validate.sample\n-rwxrwxr-x 1 1000 1000 4898 Sep 26 06:48 ./.git/hooks/pre-rebase.sample\n-rwxrwxr-x 1 1000 1000 424 Sep 26 06:48 ./.git/hooks/pre-applypatch.sample\n-rwxrwxr-x 1 1000 1000 1643 Sep 26 06:48 ./.git/hooks/pre-commit.sample\n-rwxrwxr-x 1 1000 1000 478 Sep 26 06:48 ./.git/hooks/applypatch-msg.sample\n-rwxrwxr-x 1 1000 1000 4726 Sep 26 06:48 ./.git/hooks/fsmonitor-watchman.sample\n-rwxrwxr-x 1 1000 1000 1492 Sep 26 06:48 ./.git/hooks/prepare-commit-msg.sample\n-rwxrwxr-x 1 1000 1000 896 Sep 26 06:48 ./.git/hooks/commit-msg.sample\n-rwxrwxr-x 1 1000 1000 416 Sep 26 06:48 ./.git/hooks/pre-merge-commit.sample\n-rwxrwxr-x 1 1000 1000 1374 Sep 26 06:48 ./.git/hooks/pre-push.sample\n-rwxrwxr-x 1 1000 1000 3650 Sep 26 06:48 ./.git/hooks/update.sample\n-rwxrwxr-x 1 1000 1000 189 Sep 26 06:48 ./.git/hooks/post-update.sample\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:08 ./.git/objects/4a\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/e3\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/b3\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:14 ./.git/objects/9b\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/e0\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/11\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:29 ./.git/objects/21\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/a9\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 07:16 ./.git/objects/81\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/7d\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:49 ./.git/objects/f4\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/cf\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/44\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:42 ./.git/objects/47\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:43 ./.git/objects/56\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:42 ./.git/objects/43\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:35 ./.git/objects/20\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/5e\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/e7\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/bc\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/e5\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/93\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:37 ./.git/objects/ec\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/c0\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/4c\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/b9\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/e6\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/d6\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/ea\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/9a\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/69\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/98\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/46\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:49 ./.git/objects/dd\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/3b\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/9c\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:13 ./.git/objects/bd\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/a0\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/ef\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:08 ./.git/objects/b2\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/02\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:43 ./.git/objects/85\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/b6\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/2e\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:13 ./.git/objects/8a\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:42 ./.git/objects/0c\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/52\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/90\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/8c\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/d8\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 07:16 ./.git/objects/ba\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/24\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/58\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/da\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:01 ./.git/objects/f6\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/70\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/3c\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:01 ./.git/objects/bf\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:49 ./.git/objects/b7\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/62\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:14 ./.git/objects/82\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/b0\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:58 ./.git/objects/86\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/75\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/ae\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:01 ./.git/objects/d4\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/12\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/05\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:01 ./.git/objects/91\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 07:16 ./.git/objects/68\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:13 ./.git/objects/09\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/57\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:43 ./.git/objects/79\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/22\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:42 ./.git/objects/38\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/0b\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 07:16 ./.git/objects/41\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/65\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/88\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:36 ./.git/objects/pack\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/42\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/c7\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/7c\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/97\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:01 ./.git/objects/08\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/89\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:14 ./.git/objects/07\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:50 ./.git/objects/c2\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 03:42 ./.git/objects/1f\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/a6\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/fe\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/78\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/17\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/b8\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/4d\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:08 ./.git/objects/dc\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:43 ./.git/objects/f1\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/34\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/1d\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/5d\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/25\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/6e\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/fc\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/7e\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/26\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:14 ./.git/objects/b4\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/33\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/37\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/c4\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:49 ./.git/objects/4f\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:08 ./.git/objects/fa\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 07:16 ./.git/objects/5f\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:50 ./.git/objects/f9\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/0a\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/6d\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/5b\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/40\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/74\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/d2\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:22 ./.git/objects/30\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/55\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 15:49 ./.git/objects/72\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/a2\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/77\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/48\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/7a\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/c5\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/8e\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/50\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/96\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/39\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/de\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:06 ./.git/objects/0e\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/54\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 04:06 ./.git/objects/be\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/fb\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/87\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/f5\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/d3\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:38 ./.git/objects/2d\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:48 ./.git/objects/info\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 02:17 ./.git/objects/ff\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/objects/31\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:08 ./.git/objects/e1\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:08 ./.git/objects/d5\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:43 ./.git/objects/e2\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/13\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 02:29 ./.git/objects/e8\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/71\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 01:31 ./.git/objects/3a\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:58 ./.git/objects/1b\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/ac\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/3d\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:49 ./.git/objects/cc\ndrwxrwxr-x 2 1000 1000 4096 Oct 01 09:18 ./.git/objects/a7\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 17:14 ./.git/objects/18\ndrwxrwxr-x 2 1000 1000 4096 Sep 30 03:38 ./.git/objects/d9\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:52 ./.git/objects/ee\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:45 ./.git/objects/6a\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 16:56 ./.git/objects/60\ndrwxrwxr-x 4 1000 1000 4096 Sep 26 06:53 ./.git/logs/refs\n-rw-rw-r-- 1 1000 1000 5882 Oct 02 08:30 ./.git/logs/HEAD\ndrwxrwxr-x 2 1000 1000 4096 Oct 02 08:30 ./.git/refs/heads\ndrwxrwxr-x 2 1000 1000 4096 Sep 26 06:48 ./.git/refs/tags\ndrwxrwxr-x 3 1000 1000 4096 Sep 26 06:53 ./.git/refs/remotes\n-rw-rw-r-- 1 1000 1000 240 Sep 26 06:48 ./.git/info/exclude\n-rw-rw-r-- 1 1000 1000 2850 Sep 30 01:31 ./ctx/sop/vigi_sop_full.jsonl\n-rw-rw-r-- 1 1000 1000 4197 Sep 30 01:31 ./ctx/sop/omada_sop_full.jsonl\ndrwxr-xr-x 12 1000 1000 4096 Oct 02 07:15 ./ctx/final/v2_svc_omada-central_region_dev-nbu-aps1_cat_cpu_sev_critical\ndrwxr-xr-x 3 1000 1000 4096 Oct 01 10:10 ./ctx/final/v2_svc__region__cat__sev_\ndrwxr-xr-x 7 1000 1000 4096 Oct 07 02:12 ./ctx/final/v2_svc_sdn5_region_dev-nbu-aps1_cat_cpu_sev_critical\n-rw-rw-r-- 1 1000 1000 27419 Oct 02 08:30 ./cmd/runner/main.go\n-rw-rw-r-- 1 1000 1000 1401 Sep 26 15:39 ./alerts/dev/vms_event_frontend_memory.json\n-rw-rw-r-- 1 1000 1000 1514 Sep 26 15:39 ./alerts/dev/omada_api_gateway_timeout.json\n-rw-rw-r-- 1 1000 1000 1320 Oct 02 03:40 ./alerts/dev/sdn5_cpu.json\n-rw-rw-r-- 1 1000 1000 1877 Sep 26 15:39 ./alerts/dev/omada_api_gateway_latency.json\n-rw-rw-r-- 1 1000 1000 1173 Sep 26 15:39 ./alerts/dev/omada_cloud_access_service_error.json\n-rw-rw-r-- 1 1000 1000 1366 Sep 26 15:39 ./alerts/dev/omada_central_cpu.json\n-rw-rw-r-- 1 1000 1000 1381 Sep 26 15:39 ./alerts/dev/vms_ai_manager_memory.json\n-rw-rw-r-- 1 1000 1000 1108 Sep 26 15:39 ./alerts/dev/vms_event_frontend_tps_latency.json\n-rw-rw-r-- 1 1000 1000 1087 Sep 26 15:39 ./alerts/dev/omada_iam_login_rate_limit.json\n-rw-rw-r-- 1 1000 1000 1104 Sep 26 15:39 ./alerts/dev/omada_central_elasticsearch_error.json\n-rw-rw-r-- 1 1000 1000 1265 Sep 26 15:39 ./alerts/dev/omada_device_gateway_conn_drop.json"
+                  }
+                ],
+                "status": "Success"
+              }
+            ]
+          }
+        },
+        "timestamp": null,
+        "images": null
+      },
+      "assistant": {
+        "ToolUse": {
+          "message_id": "fdfc07f9-28c2-4870-99cc-cb87459916e2",
+          "content": "现在让我检查 ctx 目录的结构，这是存放上下文文件的地方：",
+          "tool_uses": [
+            {
+              "id": "tooluse_wC6zDbMRQ6Oz_xO3L7gnFA",
+              "name": "fs_read",
+              "orig_name": "fs_read",
+              "args": {
+                "operations": [
+                  {
+                    "mode": "Directory",
+                    "path": "./ctx",
+                    "depth": 2
+                  }
+                ]
+              },
+              "orig_args": {
+                "operations": [
+                  {
+                    "mode": "Directory",
+                    "path": "./ctx",
+                    "depth": 2
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "request_metadata": {
+        "request_id": "9471dd93-6e4f-4e11-819d-a65b4b0508ba",
+        "message_id": "fdfc07f9-28c2-4870-99cc-cb87459916e2",
+        "request_start_timestamp_ms": 1759821810952,
+        "stream_end_timestamp_ms": 1759821815908,
+        "time_to_first_chunk": {
+          "secs": 3,
+          "nanos": 112589838
+        },
+        "time_between_chunks": [
+          {
+            "secs": 0,
+            "nanos": 26482
+          },
+          {
+            "secs": 0,
+            "nanos": 6640
+          },
+          {
+            "secs": 0,
+            "nanos": 41993637
+          },
+          {
+            "secs": 0,
+            "nanos": 56946353
+          },
+          {
+            "secs": 0,
+            "nanos": 57527678
+          },
+          {
+            "secs": 0,
+            "nanos": 97669056
+          },
+          {
+            "secs": 0,
+            "nanos": 57523636
+          },
+          {
+            "secs": 0,
+            "nanos": 62889852
+          },
+          {
+            "secs": 0,
+            "nanos": 49418163
+          },
+          {
+            "secs": 0,
+            "nanos": 113839782
+          },
+          {
+            "secs": 0,
+            "nanos": 114096793
+          },
+          {
+            "secs": 0,
+            "nanos": 53682317
+          },
+          {
+            "secs": 0,
+            "nanos": 56454354
+          },
+          {
+            "secs": 0,
+            "nanos": 55987094
+          },
+          {
+            "secs": 0,
+            "nanos": 337698088
+          },
+          {
+            "secs": 0,
+            "nanos": 672575681
+          },
+          {
+            "secs": 0,
+            "nanos": 557096
+          },
+          {
+            "secs": 0,
+            "nanos": 473518
+          },
+          {
+            "secs": 0,
+            "nanos": 520378
+          },
+          {
+            "secs": 0,
+            "nanos": 594604
+          },
+          {
+            "secs": 0,
+            "nanos": 402162
+          },
+          {
+            "secs": 0,
+            "nanos": 1351954
+          },
+          {
+            "secs": 0,
+            "nanos": 953472
+          },
+          {
+            "secs": 0,
+            "nanos": 243736
+          },
+          {
+            "secs": 0,
+            "nanos": 1157966
+          },
+          {
+            "secs": 0,
+            "nanos": 410517
+          },
+          {
+            "secs": 0,
+            "nanos": 7123852
+          },
+          {
+            "secs": 0,
+            "nanos": 853195
+          },
+          {
+            "secs": 0,
+            "nanos": 115
+          }
+        ],
+        "user_prompt_length": 0,
+        "response_size": 143,
+        "chat_conversation_type": "ToolUse",
+        "tool_use_ids_and_names": [
+          [
+            "tooluse_wC6zDbMRQ6Oz_xO3L7gnFA",
+            "fs_read"
+          ]
+        ],
+        "model_id": "claude-sonnet-4",
+        "message_meta_tags": []
+      }
+    }
+  ],
+  "valid_history_range": [
+    0,
+    2
+  ],
+  "transcript": [
+    "> 我想测试下 context add的功能",
+    "我来帮你测试 context add 功能。根据 README，这个项目会自动添加基础上下文和匹配的可重用上下文。让我先检查当前的目录结构：\n[Tool uses: fs_read]",
+    "现在让我检查 ctx 目录的结构，这是存放上下文文件的地方：\n[Tool uses: fs_read]",
+    "> /context save",
+    "> /conttext show",
+    "> /context show",
+    "> /save test"
+  ],
+  "tools": {
+    "awslabs.cloudwatch-mcp-server": [
+      {
+        "ToolSpecification": {
+          "name": "get_metric_metadata",
+          "description": "Gets metadata for a CloudWatch metric including description, unit and recommended\n        statistics that can be used for metric data retrieval.\n\n        This tool retrieves comprehensive metadata about a specific CloudWatch metric\n        identified by its namespace and metric name.\n\n        Usage: Use this tool to get detailed information about CloudWatch metrics,\n        including their descriptions, units, and recommended statistics to use.\n\n        Args:\n            ctx: The MCP context object for error handling and logging.\n            namespace: The metric namespace (e.g., \"AWS/EC2\", \"AWS/Lambda\")\n            metric_name: The name of the metric (e.g., \"CPUUtilization\", \"Duration\")\n            region: AWS region to query. Defaults to 'us-east-1'.\n\n        Returns:\n            Optional[MetricMetadata]: An object containing the metric's description,\n                                     recommended statistics, and unit if found,\n                                     None if no metadata is available.\n\n        Example:\n            result = await get_metric_metadata(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\"\n            )\n            if result:\n                print(f\"Description: {result.description}\")\n                print(f\"Unit: {result.unit}\")\n                print(f\"Recommended Statistics: {result.recommendedStatistics}\")\n        ",
+          "input_schema": {
+            "json": {
+              "title": "get_metric_metadataArguments",
+              "properties": {
+                "region": {
+                  "default": "us-east-1",
+                  "description": "AWS region for consistency. Note: This function uses local metadata and does not make AWS API calls. Defaults to us-east-1.",
+                  "type": "string",
+                  "title": "Region"
+                },
+                "namespace": {
+                  "description": "The namespace of the metric (e.g., 'AWS/EC2', 'AWS/Lambda')",
+                  "title": "Namespace",
+                  "type": "string"
+                },
+                "metric_name": {
+                  "title": "Metric Name",
+                  "type": "string",
+                  "description": "The name of the metric (e.g., 'CPUUtilization', 'Duration')"
+                }
+              },
+              "required": [
+                "namespace",
+                "metric_name"
+              ],
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_recommended_metric_alarms",
+          "description": "Gets recommended alarms for a CloudWatch metric.\n\n        This tool retrieves alarm recommendations for a specific CloudWatch metric\n        identified by its namespace, metric name, and dimensions. The recommendations\n        are filtered to match the provided dimensions.\n\n        Usage: Use this tool to get recommended alarm configurations for CloudWatch metrics,\n        including thresholds, evaluation periods, and other alarm settings.\n\n        Args:\n            ctx: The MCP context object for error handling and logging.\n            namespace: The metric namespace (e.g., \"AWS/EC2\", \"AWS/Lambda\")\n            metric_name: The name of the metric (e.g., \"CPUUtilization\", \"Duration\")\n            dimensions: List of dimensions with name and value pairs\n            region: AWS region to query. Defaults to 'us-east-1'.\n\n        Returns:\n            List[AlarmRecommendation]: A list of alarm recommendations that match the\n                                     provided dimensions. Empty list if no recommendations\n                                     are found or available.\n\n        Example:\n            recommendations = await get_recommended_metric_alarms(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"StatusCheckFailed_Instance\",\n                dimensions=[\n                    Dimension(name=\"InstanceId\", value=\"i-1234567890abcdef0\")\n                ]\n            )\n            for alarm in recommendations:\n                print(f\"Alarm: {alarm.alarmDescription}\")\n                print(f\"Threshold: {alarm.threshold.staticValue}\")\n        ",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "metric_name": {
+                  "description": "The name of the metric (e.g., 'CPUUtilization', 'Duration')",
+                  "title": "Metric Name",
+                  "type": "string"
+                },
+                "dimensions": {
+                  "description": "List of dimensions that identify the metric, each with name and value",
+                  "items": {
+                    "$ref": "#/$defs/Dimension"
+                  },
+                  "title": "Dimensions",
+                  "type": "array"
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "description": "AWS region for consistency. Note: This function uses local metadata and does not make AWS API calls. Defaults to us-east-1.",
+                  "type": "string",
+                  "title": "Region"
+                },
+                "namespace": {
+                  "description": "The namespace of the metric (e.g., 'AWS/EC2', 'AWS/Lambda')",
+                  "title": "Namespace",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "namespace",
+                "metric_name"
+              ],
+              "title": "get_recommended_metric_alarmsArguments",
+              "$defs": {
+                "Dimension": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "The name of the dimension",
+                      "title": "Name"
+                    },
+                    "value": {
+                      "description": "The value of the dimension",
+                      "title": "Value",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ],
+                  "title": "Dimension",
+                  "description": "Represents a CloudWatch metric dimension for input parameters."
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "describe_log_groups",
+          "description": "Lists AWS CloudWatch log groups and saved queries associated with them, optionally filtering by a name prefix.\n\n        This tool retrieves information about log groups in the account, or log groups in accounts linked to this account as a monitoring account.\n        If a prefix is provided, only log groups with names starting with the specified prefix are returned.\n\n        Additionally returns any user saved queries that are associated with any of the returned log groups.\n\n        Usage: Use this tool to discover log groups that you'd retrieve or query logs from and queries that have been saved by the user.\n\n        Returns:\n        --------\n        List of log group metadata dictionaries and saved queries associated with them\n           Each log group metadata contains details such as:\n                - logGroupName: The name of the log group.\n                - creationTime: Timestamp when the log group was created\n                - retentionInDays: Retention period, if set\n                - storedBytes: The number of bytes stored.\n                - kmsKeyId: KMS Key Id used for data encryption, if set\n                - dataProtectionStatus: Displays whether this log group has a protection policy, or whether it had one in the past, if set\n                - logGroupClass: Type of log group class\n                - logGroupArn: The Amazon Resource Name (ARN) of the log group. This version of the ARN doesn't include a trailing :* after the log group name.\n            Any saved queries that are applicable to the returned log groups are also included.\n        ",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "account_identifiers": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "When include_linked_accounts is set to True, use this parameter to specify the list of accounts to search. IMPORTANT: Only has affect if include_linked_accounts is True",
+                  "title": "Account Identifiers"
+                },
+                "log_group_name_prefix": {
+                  "title": "Log Group Name Prefix",
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "An exact prefix to filter log groups by name. IMPORTANT: Only log groups with names starting with this prefix will be returned.",
+                  "default": null
+                },
+                "log_group_class": {
+                  "description": "If specified, filters for only log groups of the specified class.",
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "STANDARD",
+                        "INFREQUENT_ACCESS"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Log Group Class"
+                },
+                "region": {
+                  "title": "Region",
+                  "type": "string",
+                  "default": "us-east-1",
+                  "description": "AWS region to query. Defaults to us-east-1."
+                },
+                "max_items": {
+                  "description": "The maximum number of log groups to return.",
+                  "title": "Max Items",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                },
+                "include_linked_accounts": {
+                  "title": "Include Linked Accounts",
+                  "description": "If the AWS account is a monitoring account, set this to True to have the tool return log groups in the accounts listed in account_identifiers.\n                If this parameter is set to true and account_identifiers contains a null value, the tool returns all log groups in the monitoring account and all log groups in all source accounts that are linked to the monitoring account.",
+                  "default": false,
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "type": "object",
+              "title": "describe_log_groupsArguments"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "execute_log_insights_query",
+          "description": "Executes a CloudWatch Logs Insights query and waits for the results to be available.\n\n        IMPORTANT: The operation must include exactly one of the following parameters: log_group_names, or log_group_identifiers.\n\n        CRITICAL: The volume of returned logs can easily overwhelm the agent context window. Always include a limit in the query\n        (| limit 50) or using the limit parameter.\n\n        Usage: Use to query, filter, collect statistics, or find patterns in one or more log groups. For example, the following\n        query lists exceptions per hour.\n\n        ```\n        filter @message like /Exception/\n        | stats count(*) as exceptionCount by bin(1h)\n        | sort exceptionCount desc\n        ```\n\n        Returns:\n        --------\n            A dictionary containing the final query results, including:\n                - status: The current status of the query (e.g., Scheduled, Running, Complete, Failed, etc.)\n                - results: A list of the actual query results if the status is Complete.\n                - statistics: Query performance statistics\n                - messages: Any informational messages about the query\n        ",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "start_time": {
+                  "description": "ISO 8601 formatted start time for the CloudWatch Logs Insights query window (e.g., \"2025-04-19T20:00:00+00:00\").",
+                  "title": "Start Time",
+                  "type": "string"
+                },
+                "query_string": {
+                  "type": "string",
+                  "description": "The query string in the Cloudwatch Log Insights Query Language. See https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html.",
+                  "title": "Query String"
+                },
+                "region": {
+                  "title": "Region",
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "type": "string",
+                  "default": "us-east-1"
+                },
+                "max_timeout": {
+                  "description": "Maximum time in second to poll for complete results before giving up",
+                  "type": "integer",
+                  "default": 30,
+                  "title": "Max Timeout"
+                },
+                "log_group_names": {
+                  "default": null,
+                  "title": "Log Group Names",
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 50
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The list of up to 50 log group names to be queried. CRITICAL: Exactly one of [log_group_names, log_group_identifiers] should be non-null."
+                },
+                "log_group_identifiers": {
+                  "description": "The list of up to 50 logGroupIdentifiers to query. You can specify them by the log group name or ARN. If a log group that you're querying is in a source account and you're using a monitoring account, you must use the ARN. CRITICAL: Exactly one of [log_group_names, log_group_identifiers] should be non-null.",
+                  "title": "Log Group Identifiers",
+                  "anyOf": [
+                    {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                },
+                "end_time": {
+                  "description": "ISO 8601 formatted end time for the CloudWatch Logs Insights query window (e.g., \"2025-04-19T21:00:00+00:00\").",
+                  "title": "End Time",
+                  "type": "string"
+                },
+                "limit": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The maximum number of log events to return. It is critical to use either this parameter or a `| limit <int>` operator in the query to avoid consuming too many tokens of the agent.",
+                  "title": "Limit",
+                  "default": null
+                }
+              },
+              "title": "execute_log_insights_queryArguments",
+              "required": [
+                "start_time",
+                "end_time",
+                "query_string"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_active_alarms",
+          "description": "Gets all CloudWatch alarms currently in ALARM state.\n\n        This tool retrieves all CloudWatch alarms that are currently in the ALARM state,\n        including both metric alarms and composite alarms. Results are optimized for\n        LLM reasoning with summary-level information.\n\n        Usage: Use this tool to get an overview of all active alarms in your AWS account\n        for troubleshooting, monitoring, and operational awareness.\n\n        Args:\n            ctx: The MCP context object for error handling and logging.\n            max_items: Maximum number of alarms to return (default: 50).\n            region: AWS region to query. Defaults to 'us-east-1'.\n\n        Returns:\n            ActiveAlarmsResponse: Response containing active alarms.\n\n        Example:\n            result = await get_active_alarms(ctx, max_items=25)\n            if isinstance(result, ActiveAlarmsResponse):\n                print(f\"Found {len(result.metric_alarms + result.composite_alarms)} active alarms\")\n                for alarm in result.metric_alarms:\n                    print(f\"Metric Alarm: {alarm.alarm_name}\")\n                for alarm in result.composite_alarms:\n                    print(f\"Composite Alarm: {alarm.alarm_name}\")\n        ",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "region": {
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "default": "us-east-1",
+                  "title": "Region",
+                  "type": "string"
+                },
+                "max_items": {
+                  "default": 50,
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Maximum number of alarms to return (default: 50). Large values may cause context window overflow and impact LLM performance.",
+                  "title": "Max Items"
+                }
+              },
+              "title": "get_active_alarmsArguments",
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_metric_data",
+          "description": "Retrieves CloudWatch metric data for a specific metric.\n\n        This tool retrieves metric data from CloudWatch for a specific metric identified by its\n        namespace, metric name, and dimensions, within a specified time range. It can use either\n        standard GetMetricData API or CloudWatch Metrics Insights for more advanced querying.\n\n        The function automatically determines whether to use standard GetMetricData or Metrics Insights\n        based on the parameters provided. If any Metrics Insights specific parameters are provided\n        (group_by_dimension, schema_dimension_keys, limit, sort_order, or order_by_statistic), it will use Metrics Insights.\n\n        When using group_by_dimension, you must include that dimension in schema_dimension_keys.\n\n        Usage: Use this tool to get actual metric data from CloudWatch for analysis or visualization.\n\n        Returns:\n            GetMetricDataResponse: An object containing the metric data results\n\n        Example 1 (Standard GetMetricData):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                dimensions=[\n                    Dimension(name=\"InstanceId\", value=\"i-1234567890abcdef0\")\n                ],\n                statistic=\"Average\"\n                # Period will be auto-calculated based on time window and target_datapoints\n            )\n\n        Example 2 (Metrics Insights with group by):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                end_time=\"2023-01-02T00:00:00Z\",\n                statistic=\"AVG\",\n                schema_dimension_keys=[\"InstanceType\"],\n                group_by_dimension=\"InstanceType\"\n                # This will generate a query like: SELECT AVG(\"CPUUtilization\") FROM SCHEMA(\"AWS/EC2\", \"InstanceType\") GROUP BY \"InstanceType\"\n            )\n\n        Example 3 (Metrics Insights with schema dimension keys):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                end_time=\"2023-01-02T00:00:00Z\",\n                statistic=\"AVG\",\n                schema_dimension_keys=[\"InstanceId\", \"InstanceType\"],\n                group_by_dimension=\"InstanceId\"\n                # This will generate a query like: SELECT AVG(\"CPUUtilization\") FROM SCHEMA(\"AWS/EC2\", \"InstanceId\", \"InstanceType\") GROUP BY \"InstanceId\"\n            )\n\n        Example 4 (Metrics Insights with ORDER BY and LIMIT to find the top 5 EC2 instances with the highest CPU utilization):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                end_time=\"2023-01-02T00:00:00Z\",\n                statistic=\"AVG\",\n                schema_dimension_keys=[\"InstanceId\"],\n                group_by_dimension=\"InstanceId\",\n                sort_order=\"DESC\",\n                limit=5,\n                order_by_statistic=\"MAX\"\n                # This will generate a query like: SELECT AVG(\"CPUUtilization\") FROM SCHEMA(\"AWS/EC2\", \"InstanceId\") GROUP BY \"InstanceId\" ORDER BY MAX() DESC LIMIT 5\n            )\n\n        Example 5 (Metrics Insights with ORDER BY without sort direction to find the EC2 instances with the highest CPU utilization ordered by default ASC):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                end_time=\"2023-01-02T00:00:00Z\",\n                statistic=\"AVG\",\n                schema_dimension_keys=[\"InstanceId\"],\n                group_by_dimension=\"InstanceId\",\n                order_by_statistic=\"MAX\"\n                # This will generate a query like: SELECT AVG(\"CPUUtilization\") FROM SCHEMA(\"AWS/EC2\", \"InstanceId\") GROUP BY \"InstanceId\" ORDER BY MAX()\n            )\n\n        Example 6 (Metrics Insights without ORDER BY clause to find the EC2 instances with the highest CPU utilization in no specific order):\n            result = await get_metric_data(\n                ctx,\n                namespace=\"AWS/EC2\",\n                metric_name=\"CPUUtilization\",\n                start_time=\"2023-01-01T00:00:00Z\",\n                end_time=\"2023-01-02T00:00:00Z\",\n                statistic=\"AVG\",\n                schema_dimension_keys=[\"InstanceId\"],\n                group_by_dimension=\"InstanceId\"\n                # This will generate a query like: SELECT AVG(\"CPUUtilization\") FROM SCHEMA(\"AWS/EC2\", \"InstanceId\") GROUP BY \"InstanceId\"\n                # No ORDER BY clause is added since neither order_by_statistic nor sort_order is specified\n            )\n\n        For each result:\n            for metric_result in result.metricDataResults:\n                print(f\"Metric: {metric_result.label}\")\n                for datapoint in metric_result.datapoints:\n                    print(f\"  {datapoint.timestamp}: {datapoint.value}\")\n        ",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "sort_order": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "ASC",
+                        "DESC"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Sort order for results when using ORDER BY in Metrics Insights. Can be 'ASC', 'DESC', or None.",
+                  "title": "Sort Order"
+                },
+                "dimensions": {
+                  "type": "array",
+                  "title": "Dimensions",
+                  "default": [],
+                  "items": {
+                    "$ref": "#/$defs/Dimension"
+                  }
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "title": "Region",
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "type": "string"
+                },
+                "group_by_dimension": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Dimension name to group by in Metrics Insights mode. Must be included in schema_dimension_keys.",
+                  "title": "Group By Dimension"
+                },
+                "start_time": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "format": "date-time",
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Start Time"
+                },
+                "statistic": {
+                  "enum": [
+                    "AVG",
+                    "COUNT",
+                    "MAX",
+                    "MIN",
+                    "SUM",
+                    "Average",
+                    "Sum",
+                    "Maximum",
+                    "Minimum",
+                    "SampleCount"
+                  ],
+                  "title": "Statistic",
+                  "type": "string",
+                  "default": "AVG",
+                  "description": "The statistic to use for the metric"
+                },
+                "target_datapoints": {
+                  "type": "integer",
+                  "default": 60,
+                  "title": "Target Datapoints",
+                  "description": "Target number of data points to return (default: 60). Controls the granularity of the returned data."
+                },
+                "limit": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Maximum number of results to return in Metrics Insights mode (used with LIMIT clause).",
+                  "default": null,
+                  "title": "Limit"
+                },
+                "order_by_statistic": {
+                  "description": "Statistic to use in the ORDER BY clause. Required if sort_order is specified.",
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "AVG",
+                        "COUNT",
+                        "MAX",
+                        "MIN",
+                        "SUM"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Order By Statistic",
+                  "default": null
+                },
+                "metric_name": {
+                  "type": "string",
+                  "title": "Metric Name"
+                },
+                "end_time": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The end time for the metric data query (ISO format or datetime), defaults to current time",
+                  "title": "End Time"
+                },
+                "schema_dimension_keys": {
+                  "default": [],
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "List of dimension keys to include in the SCHEMA definition for Metrics Insights query.",
+                  "title": "Schema Dimension Keys",
+                  "type": "array"
+                },
+                "namespace": {
+                  "type": "string",
+                  "title": "Namespace"
+                }
+              },
+              "required": [
+                "namespace",
+                "metric_name",
+                "start_time"
+              ],
+              "title": "get_metric_dataArguments",
+              "$defs": {
+                "Dimension": {
+                  "properties": {
+                    "value": {
+                      "description": "The value of the dimension",
+                      "title": "Value",
+                      "type": "string"
+                    },
+                    "name": {
+                      "title": "Name",
+                      "description": "The name of the dimension",
+                      "type": "string"
+                    }
+                  },
+                  "description": "Represents a CloudWatch metric dimension for input parameters.",
+                  "required": [
+                    "name",
+                    "value"
+                  ],
+                  "title": "Dimension",
+                  "type": "object"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_logs_insight_query_results",
+          "description": "Retrieves the results of a previously started CloudWatch Logs Insights query.\n\n        Usage: If a log query is started by execute_log_insights_query tool and has a polling time out, this tool can be used to try to retrieve\n        the query results again.\n\n        Returns:\n        --------\n            A dictionary containing the final query results, including:\n                - status: The current status of the query (e.g., Scheduled, Running, Complete, Failed, etc.)\n                - results: A list of the actual query results if the status is Complete.\n                - statistics: Query performance statistics\n                - messages: Any informational messages about the query\n        ",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "query_id": {
+                  "title": "Query Id",
+                  "description": "The unique ID of the query to retrieve the results for. CRITICAL: This ID is returned by the execute_log_insights_query tool.",
+                  "type": "string"
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "type": "string",
+                  "title": "Region"
+                }
+              },
+              "required": [
+                "query_id"
+              ],
+              "title": "get_logs_insight_query_resultsArguments",
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "cancel_logs_insight_query",
+          "description": "Cancels an ongoing CloudWatch Logs Insights query. If the query has already ended, returns an error that the given query is not running.\n\n        Usage: If a log query is started by execute_log_insights_query tool and has a polling time out, this tool can be used to cancel\n        it prematurely to avoid incurring additional costs.\n\n        Returns:\n        --------\n            A LogsQueryCancelResult with a \"success\" key, which is True if the query was successfully cancelled.\n        ",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "title": "cancel_logs_insight_queryArguments",
+              "required": [
+                "query_id"
+              ],
+              "properties": {
+                "query_id": {
+                  "description": "The unique ID of the ongoing query to cancel. CRITICAL: This ID is returned by the execute_log_insights_query tool.",
+                  "type": "string",
+                  "title": "Query Id"
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "title": "Region",
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "analyze_log_group",
+          "description": "Analyzes a CloudWatch log group for anomalies, message patterns, and error patterns within a specified time window.\n\n        This tool performs an analysis of the specified log group by:\n        1. Discovering and checking log anomaly detectors associated with the log group\n        2. Retrieving anomalies from those detectors that fall within the specified time range\n        3. Identifying the top 5 most common message patterns\n        4. Finding the top 5 patterns containing error-related terms\n\n        Usage: Use this tool to detect anomalies and understand common patterns in your log data, particularly\n        focusing on error patterns that might indicate issues. This can help identify potential problems and\n        understand the typical behavior of your application.\n\n        Returns:\n        --------\n        A LogsAnalysisResult object containing:\n            - log_anomaly_results: Information about anomaly detectors and their findings\n                * anomaly_detectors: List of anomaly detectors for the log group\n                * anomalies: List of anomalies that fall within the specified time range\n            - top_patterns: Results of the query for most common message patterns\n            - top_patterns_containing_errors: Results of the query for patterns containing error-related terms\n                (error, exception, fail, timeout, fatal)\n        ",
+          "input_schema": {
+            "json": {
+              "required": [
+                "log_group_arn",
+                "start_time",
+                "end_time"
+              ],
+              "title": "analyze_log_groupArguments",
+              "properties": {
+                "end_time": {
+                  "title": "End Time",
+                  "description": "ISO 8601 formatted end time for the CloudWatch Logs Insights query window (e.g., \"2025-04-19T21:00:00+00:00\").",
+                  "type": "string"
+                },
+                "start_time": {
+                  "title": "Start Time",
+                  "type": "string",
+                  "description": "ISO 8601 formatted start time for the CloudWatch Logs Insights query window (e.g., \"2025-04-19T20:00:00+00:00\")."
+                },
+                "log_group_arn": {
+                  "title": "Log Group Arn",
+                  "type": "string",
+                  "description": "The log group arn to look for anomalies in, as returned by the describe_log_groups tools"
+                },
+                "region": {
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "default": "us-east-1",
+                  "title": "Region",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_alarm_history",
+          "description": "Gets the history for a CloudWatch alarm with time range suggestions for investigation.\n\n        This tool retrieves the history for a specified CloudWatch alarm, focusing primarily\n        on state transitions to ALARM state. It also provides suggested time ranges for\n        investigation based on the alarm's configuration and history.\n\n        Usage: Use this tool to understand when an alarm fired and get useful time ranges\n        for investigating the underlying issue using other CloudWatch tools. The tool is\n        particularly useful for identifying patterns like alarm flapping (going in and out\n        of alarm state frequently).\n\n        Args:\n            ctx: The MCP context object for error handling and logging.\n            region: AWS region to query. Defaults to 'us-east-1'.\n            alarm_name: Name of the alarm to retrieve history for.\n            start_time: Optional start time for the history query. Defaults to 24 hours ago.\n            end_time: Optional end time for the history query. Defaults to current time.\n            history_item_type: Optional type of history items to retrieve. Defaults to 'StateUpdate'.\n            max_items: Maximum number of history items to return. Defaults to 50.\n            include_component_alarms: For composite alarms, whether to include details about component alarms.\n\n        Returns:\n            Union[AlarmHistoryResponse, CompositeAlarmComponentResponse]: Either a response containing\n            alarm history with time range suggestions, or component alarm details for composite alarms.\n\n        Example:\n            result = await get_alarm_history(\n                ctx,\n                alarm_name=\"my-cpu-alarm\",\n                start_time=\"2025-06-18T00:00:00Z\",\n                end_time=\"2025-06-19T00:00:00Z\"\n            )\n            if isinstance(result, AlarmHistoryResponse):\n                print(f\"Found {len(result.history_items)} history items\")\n                for suggestion in result.time_range_suggestions:\n                    print(f\"Suggested investigation time range: {suggestion.start_time} to {suggestion.end_time}\")\n        ",
+          "input_schema": {
+            "json": {
+              "title": "get_alarm_historyArguments",
+              "required": [
+                "alarm_name"
+              ],
+              "type": "object",
+              "properties": {
+                "alarm_name": {
+                  "type": "string",
+                  "description": "Name of the alarm to retrieve history for",
+                  "title": "Alarm Name"
+                },
+                "max_items": {
+                  "default": 50,
+                  "title": "Max Items",
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Maximum number of history items to return (default: 50). Large values may cause context window overflow and impact LLM performance. Adjust time-range to limit responses."
+                },
+                "region": {
+                  "default": "us-east-1",
+                  "description": "AWS region to query. Defaults to us-east-1.",
+                  "title": "Region",
+                  "type": "string"
+                },
+                "history_item_type": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Type of history items to retrieve. Possible values: 'ConfigurationUpdate', 'StateUpdate', 'Action'. Defaults to 'StateUpdate'.",
+                  "title": "History Item Type",
+                  "default": null
+                },
+                "include_component_alarms": {
+                  "description": "For composite alarms, whether to include details about component alarms. Defaults to false.",
+                  "default": false,
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Include Component Alarms"
+                },
+                "start_time": {
+                  "description": "The start time for the history query in ISO format (e.g., '2023-01-01T00:00:00Z') or as a datetime object. Defaults to 24 hours ago.",
+                  "title": "Start Time",
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "end_time": {
+                  "default": null,
+                  "title": "End Time",
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The end time for the history query in ISO format (e.g., '2023-01-01T00:00:00Z') or as a datetime object. Defaults to current time."
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "native___": [
+      {
+        "ToolSpecification": {
+          "name": "use_aws",
+          "description": "Make an AWS CLI api call with the specified service, operation, and parameters. All arguments MUST conform to the AWS CLI specification. Should the output of the invocation indicate a malformed command, invoke help to obtain the the correct command.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "operation_name": {
+                  "type": "string",
+                  "description": "The name of the operation to perform."
+                },
+                "profile_name": {
+                  "description": "Optional: AWS profile name to use from ~/.aws/credentials. Defaults to default profile if not specified.",
+                  "type": "string"
+                },
+                "service_name": {
+                  "description": "The name of the AWS service. If you want to query s3, you should use s3api if possible.",
+                  "type": "string"
+                },
+                "region": {
+                  "type": "string",
+                  "description": "Region name for calling the operation on AWS."
+                },
+                "parameters": {
+                  "type": "object",
+                  "description": "The parameters for the operation. The parameter keys MUST conform to the AWS CLI specification. You should prefer to use JSON Syntax over shorthand syntax wherever possible. For parameters that are booleans, prioritize using flags with no value. Denote these flags with flag names as key and an empty string as their value. You should also prefer kebab case."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Human readable description of the api that is being called."
+                }
+              },
+              "required": [
+                "region",
+                "service_name",
+                "operation_name",
+                "label"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "dummy",
+          "description": "This is a dummy tool. If you are seeing this that means the tool associated with this tool call is not in the list of available tools. This could be because a wrong tool name was supplied or the list of tools has changed since the conversation has started. Do not show this when user asks you to list tools.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "fs_read",
+          "description": "Tool for reading files, directories and images. Always provide an 'operations' array.\n\nFor single operation: provide array with one element.\nFor batch operations: provide array with multiple elements.\n\nAvailable modes:\n- Line: Read lines from a file\n- Directory: List directory contents\n- Search: Search for patterns in files\n- Image: Read and process images\n\nExamples:\n1. Single: {\"operations\": [{\"mode\": \"Line\", \"path\": \"/file.txt\"}]}\n2. Batch: {\"operations\": [{\"mode\": \"Line\", \"path\": \"/file1.txt\"}, {\"mode\": \"Search\", \"path\": \"/file2.txt\", \"pattern\": \"test\"}]}",
+          "input_schema": {
+            "json": {
+              "required": [
+                "operations"
+              ],
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "description": "Optional description of the purpose of this batch operation (mainly useful for multiple operations)"
+                },
+                "operations": {
+                  "description": "Array of operations to execute. Provide one element for single operation, multiple for batch.",
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "mode"
+                    ],
+                    "properties": {
+                      "path": {
+                        "description": "Path to the file or directory. The path should be absolute, or otherwise start with ~ for the user's home (required for Line, Directory, Search modes).",
+                        "type": "string"
+                      },
+                      "image_paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "List of paths to the images. This is currently supported by the Image mode."
+                      },
+                      "mode": {
+                        "enum": [
+                          "Line",
+                          "Directory",
+                          "Search",
+                          "Image"
+                        ],
+                        "type": "string",
+                        "description": "The operation mode to run in: `Line`, `Directory`, `Search`. `Line` and `Search` are only for text files, and `Directory` is only for directories. `Image` is for image files, in this mode `image_paths` is required."
+                      },
+                      "start_line": {
+                        "default": 1,
+                        "description": "Starting line number (optional, for Line mode). A negative index represents a line number starting from the end of the file.",
+                        "type": "integer"
+                      },
+                      "depth": {
+                        "type": "integer",
+                        "description": "Depth of a recursive directory listing (optional, for Directory mode)",
+                        "default": 0
+                      },
+                      "end_line": {
+                        "description": "Ending line number (optional, for Line mode). A negative index represents a line number starting from the end of the file.",
+                        "default": -1,
+                        "type": "integer"
+                      },
+                      "pattern": {
+                        "description": "Pattern to search for (required, for Search mode). Case insensitive. The pattern matching is performed per line.",
+                        "type": "string"
+                      },
+                      "context_lines": {
+                        "type": "integer",
+                        "description": "Number of context lines around search results (optional, for Search mode)",
+                        "default": 2
+                      }
+                    }
+                  }
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "fs_write",
+          "description": "A tool for creating and editing files\n * The `create` command will override the file at `path` if it already exists as a file, and otherwise create a new file\n * The `append` command will add content to the end of an existing file, automatically adding a newline if the file doesn't end with one. The file must exist.\n Notes for using the `str_replace` command:\n * The `old_str` parameter should match EXACTLY one or more consecutive lines from the original file. Be mindful of whitespaces!\n * If the `old_str` parameter is not unique in the file, the replacement will not be performed. Make sure to include enough context in `old_str` to make it unique\n * The `new_str` parameter should contain the edited lines that should replace the `old_str`.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "description": "A brief explanation of what the file change does or why it's being made."
+                },
+                "command": {
+                  "description": "The commands to run. Allowed options are: `create`, `str_replace`, `insert`, `append`.",
+                  "type": "string",
+                  "enum": [
+                    "create",
+                    "str_replace",
+                    "insert",
+                    "append"
+                  ]
+                },
+                "new_str": {
+                  "type": "string",
+                  "description": "Required parameter of `str_replace` command containing the new string. Required parameter of `insert` command containing the string to insert. Required parameter of `append` command containing the content to append to the file."
+                },
+                "file_text": {
+                  "description": "Required parameter of `create` command, with the content of the file to be created.",
+                  "type": "string"
+                },
+                "insert_line": {
+                  "description": "Required parameter of `insert` command. The `new_str` will be inserted AFTER the line `insert_line` of `path`.",
+                  "type": "integer"
+                },
+                "old_str": {
+                  "description": "Required parameter of `str_replace` command containing the string in `path` to replace.",
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Absolute path to file or directory, e.g. `/repo/file.py` or `/repo`."
+                }
+              },
+              "required": [
+                "command",
+                "path"
+              ],
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "introspect",
+          "description": "ALWAYS use this tool when users ask ANY question about Q CLI itself, its capabilities, features, commands, or functionality. This includes questions like 'Can you...', 'Do you have...', 'How do I...', 'What can you do...', or any question about Q's abilities. When mentioning commands in your response, always prefix them with '/' (e.g., '/save', '/load', '/context'). CRITICAL: Only provide information explicitly documented in Q CLI documentation. If details about any tool, feature, or command are not documented, clearly state the information is not available rather than generating assumptions.",
+          "input_schema": {
+            "json": {
+              "required": [],
+              "type": "object",
+              "properties": {
+                "query": {
+                  "description": "The user's question about Q CLI usage, features, or capabilities",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "report_issue",
+          "description": "Opens the browser to a pre-filled gh (GitHub) issue template to report chat issues, bugs, or feature requests. Pre-filled information includes the conversation transcript, chat context, and chat request IDs from the service.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "steps_to_reproduce": {
+                  "type": "string",
+                  "description": "Optional: Previous user chat requests or steps that were taken that may have resulted in the issue or error response."
+                },
+                "expected_behavior": {
+                  "description": "Optional: The expected chat behavior or action that did not happen.",
+                  "type": "string"
+                },
+                "actual_behavior": {
+                  "type": "string",
+                  "description": "Optional: The actual chat behavior that happened and demonstrates the issue or lack of a feature."
+                },
+                "title": {
+                  "description": "The title of the GitHub issue.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "title"
+              ],
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "execute_bash",
+          "description": "Execute the specified bash command.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string",
+                  "description": "Bash command to execute"
+                },
+                "summary": {
+                  "type": "string",
+                  "description": "A brief explanation of what the command does"
+                }
+              },
+              "required": [
+                "command"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "victoriametrics": [
+      {
+        "ToolSpecification": {
+          "name": "labels",
+          "description": "List of label names of the VictoriaMetrics instance. This tools uses `/api/v1/labels` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "match": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Time series selector argument that selects the series from which to read the label names",
+                  "title": "Match series for label names"
+                },
+                "start": {
+                  "description": "Start timestamp for selection labels names",
+                  "type": "string",
+                  "title": "Start timestamp",
+                  "default": "",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$"
+                },
+                "end": {
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "End timestamp",
+                  "default": "",
+                  "description": "End timestamp for selection labels names",
+                  "type": "string"
+                },
+                "limit": {
+                  "minimum": 0,
+                  "title": "Maximum number of label names",
+                  "type": "number",
+                  "description": "Maximum number of label names to return",
+                  "default": 0
+                },
+                "tenant": {
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "default": "0",
+                  "description": "Name of the tenant for which the list of labels will be displayed",
+                  "type": "string",
+                  "title": "Tenant name"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "rules",
+          "description": "List of alerting and recording rules of VictoriaMetrics instance. This tool uses `/api/v1/rules` endpoint of vmalert API proxied by VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "title": "Rules type",
+                  "description": "Rules type to be displayed: alert or record",
+                  "default": "",
+                  "enum": [
+                    "alert",
+                    "record"
+                  ]
+                },
+                "rule_files": {
+                  "description": "Filter rules by file names",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Rule files"
+                },
+                "filter": {
+                  "description": "Extra filter for rules with possible problems: unhealthy (rules that get some errors during evaluation) or noMatch (rules that don't match any time series)",
+                  "default": "",
+                  "enum": [
+                    "unhealthy",
+                    "noMatch"
+                  ],
+                  "title": "Extra filter for rules",
+                  "type": "string"
+                },
+                "rule_groups": {
+                  "description": "Filter rules by group names",
+                  "type": "array",
+                  "title": "Rule groups",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "rule_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Rule names",
+                  "description": "Filter rules by name"
+                },
+                "tenant": {
+                  "default": "0",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "title": "Tenant name",
+                  "description": "Name of the tenant for which the list of rules will be displayed",
+                  "type": "string"
+                },
+                "exclude_alerts": {
+                  "description": "Exclude alerts from the list",
+                  "default": false,
+                  "title": "Exclude alerts",
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "retention_filters_debug",
+          "description": "Retention filters debug tool is used to debug flag \"retentionFilter\" and \"retentionPeriod\" with some series and see what retention policy will be applied for which series in Enterprise version of VictoriaMetrics.\nThis tool use \"/retention-filters-debug\" API endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "flags",
+                "metrics"
+              ],
+              "properties": {
+                "metrics": {
+                  "title": "Metrics",
+                  "description": "Set of metrics to be debugged. The metrics should be in the format of <metric_name>{<label_name>=\"<label_value>\",...}.",
+                  "pattern": "^([a-zA-Z_]*\\{\\s*(([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))?(\\s*,\\s*([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))*\\s*\\}\\n)+$",
+                  "type": "string"
+                },
+                "flags": {
+                  "description": "Commandline flags values for `retentionPeriod` and `retentionFilter`. For example: `-retentionPeriod=1y -retentionFilters={env!=\"prod\"}:2w`",
+                  "type": "string",
+                  "title": "Value of `retentionFilter` and `retentionPeriod` flags"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "prettify_query",
+          "description": "Prettify (format) MetricsQL query. This tool uses `/prettify-query` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "query"
+              ],
+              "type": "object",
+              "properties": {
+                "query": {
+                  "description": "MetricsQL or PromQL expression for prettification. This is the query that will be formatted.",
+                  "title": "MetricsQL or PromQL expression",
+                  "type": "string"
+                },
+                "tenant": {
+                  "description": "Name of the tenant for which the data will be displayed",
+                  "default": "0",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "title": "Tenant name",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "top_queries",
+          "description": "Top queries.\nThis tool can determine top queries of the following query types:\n- the most frequently executed queries;\n- queries with the biggest average execution duration;\n- queries that took the most summary time for execution.\nThis information is obtained from the \"/api/v1/status/top_queries\" HTTP endpoint of VictoriaMetrics API.\n",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "topN": {
+                  "default": 20,
+                  "description": "The number of top entries to return in the response. By default is 20.",
+                  "minimum": 1,
+                  "type": "number",
+                  "title": "Top N"
+                },
+                "tenant": {
+                  "default": "0",
+                  "description": "Name of the tenant for which the top queries will be displayed",
+                  "type": "string",
+                  "title": "Tenant name",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$"
+                },
+                "maxLifetime": {
+                  "default": "10m",
+                  "description": "Max lifetime of the queries to be taken into account during stats calculation. By default is 10m.",
+                  "type": "string",
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "title": "Max lifetime"
+                }
+              },
+              "required": [
+                "topN"
+              ],
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "series",
+          "description": "List of available time series of the VictoriaMetrics instance. This tool uses `/api/v1/series` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "start": {
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "type": "string",
+                  "title": "Start timestamp",
+                  "description": "Start timestamp for selection time series",
+                  "default": ""
+                },
+                "tenant": {
+                  "type": "string",
+                  "description": "Name of the tenant for which the list of time series will be displayed",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "title": "Tenant name",
+                  "default": "0"
+                },
+                "end": {
+                  "default": "",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "End timestamp",
+                  "type": "string",
+                  "description": "End timestamp for selection time series"
+                },
+                "limit": {
+                  "type": "number",
+                  "description": "Maximum number of time series to return",
+                  "minimum": 0,
+                  "title": "Maximum number of time series",
+                  "default": 0
+                },
+                "match": {
+                  "description": "Time series selector argument that selects the series",
+                  "default": "",
+                  "title": "Match series",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "tsdb_status",
+          "description": "The following tool returns various cardinality statistics about the VictoriaMetrics TSDB:\n- Metric names with the highest number of series.\n- Labels with the highest number of series.\n- Values with the highest number of series for the selected label (aka focusLabel).\n- label=name pairs with the highest number of series.\n- Labels with the highest number of unique values.\n\nThis tool returns TSDB stats from \"/api/v1/status/tsdb\" endpoint of VictoriaMetrics API (in the way similar to Prometheus).\n",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "match": {
+                  "type": "string",
+                  "title": "Match series selector",
+                  "default": "",
+                  "description": "Arbitrary time series selector for series to take into account during stats calculation. By default all the series are taken into account."
+                },
+                "tenant": {
+                  "type": "string",
+                  "title": "Tenant name",
+                  "default": "0",
+                  "description": "Name of the tenant for which the TSDB stats will be displayed",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$"
+                },
+                "focusLabel": {
+                  "description": "Returns label values with the highest number of time series for the given label name in the seriesCountByFocusLabelValue list.",
+                  "default": "",
+                  "title": "Focus label",
+                  "type": "string"
+                },
+                "topN": {
+                  "minimum": 1,
+                  "title": "Top N",
+                  "default": 10,
+                  "type": "number",
+                  "description": "is the number of top entries to return in the response"
+                },
+                "date": {
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "description": "The date for collecting the stats. By default, the stats is collected for the current day. Pass date=1970-01-01 in order to collect global stats across all the days.",
+                  "default": "",
+                  "title": "Date",
+                  "type": "string"
+                },
+                "extraLabel": {
+                  "description": "Optional extra_label=<label_name>=<label_value> query arg, which can be used for enforcing additional label filters for queries. For example, /api/v1/query_range?extra_label=user_id=123&extra_label=group_id=456&query=<query> would automatically add {user_id=\"123\",group_id=\"456\"} label filters to the given <query>. This functionality can be used for limiting the scope of time series visible to the given tenant.",
+                  "type": "string",
+                  "title": "Extra label",
+                  "default": ""
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "flags",
+          "description": "List of non-default flags (parameters) of the VictoriaMetrics instance. This tools uses `/flags` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {}
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "metrics",
+          "description": "List of available metrics of the VictoriaMetrics instance. This tool uses `/api/v1/label/__name__/values` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "limit": {
+                  "description": "Maximum number of metric names to return",
+                  "title": "Maximum number of metric names",
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0
+                },
+                "start": {
+                  "default": "",
+                  "title": "Start timestamp",
+                  "type": "string",
+                  "description": "Start timestamp for selection metric names",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$"
+                },
+                "match": {
+                  "default": "",
+                  "type": "string",
+                  "title": "Match series for metric names",
+                  "description": "Time series selector argument that selects the series from which to read the metrics"
+                },
+                "end": {
+                  "type": "string",
+                  "description": "End timestamp for selection metric names",
+                  "title": "End timestamp",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "default": ""
+                },
+                "tenant": {
+                  "default": "0",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "title": "Tenant name",
+                  "type": "string",
+                  "description": "Name of the tenant for which the list of metrics will be displayed"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "explain_query",
+          "description": "Explain how MetricsQL query works",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "query": {
+                  "type": "string",
+                  "title": "MetricsQL or PromQL expression",
+                  "description": "MetricsQL or PromQL expression for explanation"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "export",
+          "description": "Export time series to file (json or csv) from VictoriaMetrics instance. This tool uses `/api/v1/export` or `/api/v1/export/csv` endpoints of VictoriaMetrics API)",
+          "input_schema": {
+            "json": {
+              "required": [
+                "match",
+                "format"
+              ],
+              "type": "object",
+              "properties": {
+                "format": {
+                  "default": "json",
+                  "description": "Export format: json (default) or csv",
+                  "enum": [
+                    "csv",
+                    "json"
+                  ],
+                  "type": "string"
+                },
+                "start": {
+                  "default": "",
+                  "type": "string",
+                  "title": "Start timestamp",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "description": "Start timestamp for export"
+                },
+                "end": {
+                  "type": "string",
+                  "default": "",
+                  "description": "End timestamp for export",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "End timestamp"
+                },
+                "tenant": {
+                  "title": "Tenant name",
+                  "default": "0",
+                  "type": "string",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "description": "Name of the tenant for which the data will be exported"
+                },
+                "match": {
+                  "description": "Time series selector argument that selects the series for export",
+                  "type": "string",
+                  "title": "Match series for export"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "metric_statistics",
+          "description": "Statistics of metrics usage in queries of the VictoriaMetrics instance. This tool helps to identify unused (never queried) or rarely used metrics or conversely actively queried metrics. This tool uses `/api/v1/status/metric_names_stats` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "le": {
+                  "title": "Less than or equal",
+                  "description": "less than or equal, is an integer threshold for filtering metric names by their usage count in queries. For example, with ?le=1 API returns metric names that were queried <=1 times.",
+                  "type": "number"
+                },
+                "limit": {
+                  "title": "Maximum number of metric names",
+                  "default": 1000,
+                  "description": "Integer value to limit the number of metric names in response. By default, API returns 1000 records.",
+                  "type": "number"
+                },
+                "tenant": {
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "description": "Name of the tenant for which the metric query statistics will be displayed",
+                  "title": "Tenant name",
+                  "type": "string",
+                  "default": "0"
+                },
+                "match_pattern": {
+                  "type": "string",
+                  "default": "",
+                  "description": "A regex pattern to match metric names for showing usage statistics. For example, ?match_pattern=vm_ will match any metric names with vm_ pattern, like vm_http_requests, max_vm_memory_available.",
+                  "title": "A regex pattern to match metric names"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "downsampling_filters_debug",
+          "description": "Downsampling filters debug tool is used to debug flag \"downsampling.period\" with some series and see what downsampling strategy will be applied for which series in Enterprise version of VictoriaMetrics.\nThis tool use \"/downsampling-filters-debug\" API endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "required": [
+                "flags",
+                "metrics"
+              ],
+              "properties": {
+                "flags": {
+                  "description": "Commandline flags values for `downsampling.period`. For example: `-downsampling.period={env=\"dev\"}:7d:5m,{env=\"dev\"}:30d:30m -downsampling.period=30d:1m -downsampling.period=60d:5m`",
+                  "title": "Value of `downsampling.period` flag",
+                  "type": "string"
+                },
+                "metrics": {
+                  "type": "string",
+                  "title": "Metrics",
+                  "description": "Set of metrics to be debugged. The metrics should be in the format of <metric_name>{<label_name>=\"<label_value>\",...}.",
+                  "pattern": "^([a-zA-Z_]*\\{\\s*(([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))?(\\s*,\\s*([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))*\\s*\\}\\n)+$"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "documentation",
+          "description": "Search documentation resources for the given search query, returning the URIs of the resources that match the search criteria sorted by relevance. This tool can help to get context for any VictoriaMetrics related question.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "query"
+              ],
+              "properties": {
+                "limit": {
+                  "type": "number",
+                  "minimum": 1,
+                  "description": "Maximum number of results to return",
+                  "title": "Maximum number of results",
+                  "default": 30
+                },
+                "query": {
+                  "description": "Query for search (for example, list of keywords)",
+                  "title": "Search query",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "query",
+          "description": "Instant query executes PromQL or MetricsQL query expression at the given time. The result of Instant query is a list of time series matching the filter in query expression. Each returned series contains exactly one (timestamp, value) entry, where timestamp equals to the time query arg, while the value contains query result at the requested time. This tool uses `/api/v1/query` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "nocache": {
+                  "default": false,
+                  "title": "Disable cache",
+                  "description": "If true, the query will not use the rollup cache on execution.",
+                  "type": "boolean"
+                },
+                "query": {
+                  "type": "string",
+                  "title": "MetricsQL or PromQL expression",
+                  "description": "MetricsQL or PromQL expression for the query of the data"
+                },
+                "time": {
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "Timestamp",
+                  "type": "string",
+                  "description": "Timestamp in millisecond precision to evaluate the query at. If omitted, time is set to now() (current timestamp). The time param can be specified in multiple allowed formats."
+                },
+                "timeout": {
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "description": "Optional query timeout. For example, timeout=5s. Query is canceled when the timeout is reached. By default the timeout is set to the value of -search.maxQueryDuration command-line flag passed to single-node VictoriaMetrics or to vmselect component of VictoriaMetrics cluster.",
+                  "title": "Timeout",
+                  "type": "string"
+                },
+                "step": {
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "type": "string",
+                  "description": "Optional interval for searching for raw samples in the past when executing the query (used when a sample is missing at the specified time). For example, the request /api/v1/query?query=up&step=1m looks for the last written raw sample for the metric up in the (now()-1m, now()] interval (the first millisecond is not included). If omitted, step is set to 5m (5 minutes) by default.",
+                  "title": "Step"
+                },
+                "tenant": {
+                  "title": "Tenant name",
+                  "type": "string",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "description": "Name of the tenant for which the data will be displayed",
+                  "default": "0"
+                },
+                "trace": {
+                  "description": "If true, the query will be traced and the trace will be returned in the response. This is useful for debugging and performance analysis.",
+                  "type": "boolean",
+                  "default": false,
+                  "title": "Enable query trace"
+                }
+              },
+              "required": [
+                "query"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "query_range",
+          "description": "Range query executes the query expression at the given [start…end] time range with the given step. The result of Range query is a list of time series matching the filter in query expression. Each returned series contains (timestamp, value) results for the query executed at start, start+step, start+2*step, …, start+N*step timestamps. In other words, Range query is an Instant query executed independently at start, start+step, …, start+N*step timestamps with the only difference that an instant query does not return ephemeral samples (see below). Instead, if the database does not contain any samples for the requested time and step, it simply returns an empty result. This tool uses `/api/v1/query_range` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "query",
+                "start"
+              ],
+              "type": "object",
+              "properties": {
+                "trace": {
+                  "title": "Enable query trace",
+                  "description": "If true, the query will be traced and the trace will be returned in the response. This is useful for debugging and performance analysis.",
+                  "type": "boolean",
+                  "default": false
+                },
+                "tenant": {
+                  "type": "string",
+                  "description": "Name of the tenant for which the data will be displayed",
+                  "default": "0",
+                  "title": "Tenant name",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$"
+                },
+                "end": {
+                  "type": "string",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "End timestamp",
+                  "description": "The ending timestamp of the time range for query evaluation. If the end isn’t set, then the end is automatically set to the current time."
+                },
+                "nocache": {
+                  "default": false,
+                  "type": "boolean",
+                  "title": "Disable cache",
+                  "description": "If true, the query will not use the rollup cache on execution."
+                },
+                "query": {
+                  "description": "MetricsQL or PromQL expression for the query of the data",
+                  "type": "string",
+                  "title": "MetricsQL or PromQL expression"
+                },
+                "start": {
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "description": "The starting timestamp of the time range for query evaluation",
+                  "type": "string",
+                  "title": "Start timestamp"
+                },
+                "timeout": {
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "title": "Timeout",
+                  "description": "optional query timeout. For example, timeout=5s. Query is canceled when the timeout is reached. By default the timeout is set to the value of -search.maxQueryDuration command-line flag passed to single-node VictoriaMetrics or to vmselect component in VictoriaMetrics cluster.",
+                  "type": "string"
+                },
+                "step": {
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "description": "the interval between data points, which must be returned from the range query. The query is executed at start, start+step, start+2*step, …, start+N*step timestamps, where N is the whole number of steps that fit between start and end. end is included only when it equals to start+N*step. If the step isn’t set, then it default to 5m (5 minutes).",
+                  "title": "Step",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "test_rules",
+          "description": "Unit test alerting and recording rules. It use **[vmalert-tool](https://docs.victoriametrics.com/victoriametrics/vmalert-tool/)** under the hood . vmalert-tool unittest is compatible with Prometheus config format for tests.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "rule_files",
+                "evaluation_interval",
+                "tests"
+              ],
+              "type": "object",
+              "properties": {
+                "evaluation_interval": {
+                  "type": "string",
+                  "title": "Evaluation interval",
+                  "pattern": "^([0-9]+)([a-z]+)$",
+                  "description": "Evaluation interval for the rules  specified in \"rule_files\". It should be in the format \"1m\", \"5s\", etc. This is used to determine how often the rules are evaluated."
+                },
+                "tests": {
+                  "description": "The list of unit test files to be checked during evaluation. See \"vmalert-tool\" docs for details on the format of the tests.",
+                  "type": "array",
+                  "title": "List of unit tests",
+                  "items": {
+                    "properties": {
+                      "name": {
+                        "description": "Name of the test group, optional",
+                        "optional": true,
+                        "type": "string"
+                      },
+                      "metricsql_expr_test": {
+                        "items": {
+                          "properties": {
+                            "exp_series": {
+                              "description": "Expected samples at the given evaluation time.",
+                              "items": {
+                                "description": "Expected series configuration",
+                                "type": "object",
+                                "properties": {
+                                  "labels": {
+                                    "description": "Labels of the sample in usual series notation '<metric name>{<label name>=<label value>, ...}'. \nExamples:\n - series_name{label1=\"value1\", label2=\"value2\"}\n - go_goroutines{job=\"prometheus\", instance=\"localhost:9090\"}",
+                                    "type": "string"
+                                  },
+                                  "values": {
+                                    "type": "string",
+                                    "description": "The expected value of the Metricsql expression."
+                                  }
+                                }
+                              },
+                              "type": "array"
+                            },
+                            "expr": {
+                              "description": "Metricsql expression to evaluate",
+                              "type": "string"
+                            },
+                            "eval_time": {
+                              "type": "string",
+                              "description": "The time elapsed from time=0s when this expression should be checked."
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "description": "Unit tests for Metricsql expressions",
+                        "type": "array"
+                      },
+                      "alert_rule_test": {
+                        "items": {
+                          "properties": {
+                            "groupname": {
+                              "description": "Name of the group name to be tested.",
+                              "type": "string"
+                            },
+                            "alertname": {
+                              "description": "Name of the alert to be tested.",
+                              "type": "string"
+                            },
+                            "exp_alerts": {
+                              "items": {
+                                "description": "Expected alert configuration",
+                                "type": "object",
+                                "properties": {
+                                  "exp_labels": {
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "type": "object",
+                                    "description": "Labels of the expected alert"
+                                  },
+                                  "exp_annotations": {
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    },
+                                    "type": "object",
+                                    "description": "Annotations of the expected alert"
+                                  }
+                                }
+                              },
+                              "type": "array",
+                              "description": "List of the expected alerts that are firing under the given alertname at the given evaluation time. If you want to test if an alerting rule should not be firing, then you can mention only the fields above and leave 'exp_alerts' empty."
+                            },
+                            "eval_time": {
+                              "description": "The time elapsed from time=0s when this alerting rule should be checked. Means this rule should be firing at this point, or shouldn't be firing if 'exp_alerts' is empty.",
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "type": "array",
+                        "description": "Unit tests for alerting rules"
+                      },
+                      "external_labels": {
+                        "description": "External labels for the tests. This is not accessible for templating, use '-external.label' cmd-line flag instead.",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "input_series": {
+                        "type": "array",
+                        "description": "Time series to persist into the database according to configured <interval> before running tests.",
+                        "items": {
+                          "properties": {
+                            "series": {
+                              "type": "string",
+                              "description": "series in the following format '<metric name>{<label name>=<label value>, ...}'. \nExamples:\n  - series_name{label1=\"value1\", label2=\"value2\"}\n  - go_goroutines{job=\"prometheus\", instance=\"localhost:9090\"}"
+                            },
+                            "values": {
+                              "type": "string",
+                              "description": "Values support several special equations:\n   'a+bxc' becomes 'a a+b a+(2*b) a+(3*b) … a+(c*b)'\n    Read this as series starts at a, then c further samples incrementing by b.\n   'a-bxc' becomes 'a a-b a-(2*b) a-(3*b) … a-(c*b)'\n    Read this as series starts at a, then c further samples decrementing by b (or incrementing by negative b).\n   '_' represents a missing sample from scrape\n   'stale' indicates a stale sample\nExamples:\n    1. '-2+4x3' becomes '-2 2 6 10' - series starts at -2, then 3 further samples incrementing by 4.\n    2. ' 1-2x4' becomes '1 -1 -3 -5 -7' - series starts at 1, then 4 further samples decrementing by 2.\n    3. ' 1x4' becomes '1 1 1 1 1' - shorthand for '1+0x4', series starts at 1, then 4 further samples incrementing by 0.\n    4. ' 1 _x3 stale' becomes '1 _ _ _ stale' - the missing sample cannot increment, so 3 missing samples are produced by "
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "interval": {
+                        "description": "Interval between samples for input series, in the format '1m', '5s', etc. default = evaluation_interval",
+                        "operational": true,
+                        "type": "string"
+                      }
+                    },
+                    "title": "Unit test group configuration",
+                    "type": "object"
+                  }
+                },
+                "rule_files": {
+                  "title": "List of rule files contents in vmalert/prometheus format",
+                  "type": "array",
+                  "description": "List of rule yaml files contents in vmalert/prometheus format. Each item in the list should be a string containing the yaml content of a rule file.",
+                  "items": {
+                    "type": "object",
+                    "parameters": {
+                      "filename": {
+                        "description": "Optional filename for the rule file. If not provided, a default name will be used.",
+                        "type": "string"
+                      },
+                      "content": {
+                        "description": "Content of the rule file in vmalert/prometheus format. It should be a valid yaml string.",
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "metric_relabel_debug",
+          "description": "Metric relabel debug tool can help with step-by-step debugging of Prometheus-compatible relabeling rules. It can be used to check how the relabeling rules are applied to the given metric. \nThe tool use \"/metric-relabel-debug\" endpoint of the VictoriaMetrics API. ",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "required": [
+                "relabel_configs",
+                "metric"
+              ],
+              "properties": {
+                "relabel_configs": {
+                  "description": "Prometheus-compatible relabeling rules",
+                  "type": "string",
+                  "title": "Relabel config"
+                },
+                "metric": {
+                  "type": "string",
+                  "description": "Set of metrics to be relabeled. The metrics should be in the format of {<label_name>=\"<label_value>\",...}.",
+                  "pattern": "^\\{\\s*(([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))?(\\s*,\\s*([a-zA-Z-_]+\\s*\\=\\s*\\\".*\\\"))*\\s*\\}$",
+                  "title": "Metrics"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "label_values",
+          "description": "List of label values from VictoriaMetrics instance for a provided label name. This tool uses `/api/v1/label/{labelName}/values` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "limit": {
+                  "minimum": 0,
+                  "title": "Maximum number of label values",
+                  "type": "number",
+                  "default": 0,
+                  "description": "Maximum number of label values to return"
+                },
+                "start": {
+                  "description": "Start timestamp for selection labels values",
+                  "title": "Start timestamp",
+                  "type": "string",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "default": ""
+                },
+                "tenant": {
+                  "title": "Tenant name",
+                  "default": "0",
+                  "description": "Name of the tenant for which the list of label values will be displayed",
+                  "type": "string",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$"
+                },
+                "label_name": {
+                  "pattern": "^.+$",
+                  "type": "string",
+                  "description": "Name of the label to query its values",
+                  "title": "Label name"
+                },
+                "end": {
+                  "description": "End timestamp for selection labels values",
+                  "default": "",
+                  "type": "string",
+                  "pattern": "^((?:(\\d{4}-\\d{2}-\\d{2})T(\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?))(Z|[\\+-]\\d{2}:\\d{2})?)|([0-9]+)$",
+                  "title": "End timestamp"
+                },
+                "match": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Time series selector argument that selects the series from which to read the label values",
+                  "title": "Match series for labels values"
+                }
+              },
+              "required": [
+                "label_name"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "active_queries",
+          "description": "Active queries. This tool can determine currently active queries in the VictoriaMetrics instance.\nThis information is obtained from the \"/api/v1/status/active_queries\" HTTP endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "properties": {
+                "tenant": {
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "default": "0",
+                  "type": "string",
+                  "title": "Tenant name",
+                  "description": "Name of the tenant for which the active queries will be displayed"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "tenants",
+          "description": "List of tenants of the VictoriaMetrics instance.  This tool uses `/admin/tenants` endpoint of VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {},
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "alerts",
+          "description": "List of firing and pending alerts of the VictoriaMetrics instance. This tool uses `/api/v1/alerts` endpoint of vmalert API, proxied by VictoriaMetrics API.",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "state": {
+                  "description": "Filter alerts by their state. Possible values: 'firing', 'pending', 'all'. Default is 'all'.",
+                  "title": "Filter by alert state",
+                  "type": "string",
+                  "default": "all",
+                  "enum": [
+                    "firing",
+                    "pending",
+                    "all"
+                  ]
+                },
+                "tenant": {
+                  "default": "0",
+                  "pattern": "^([0-9]+)(\\:[0-9]+)?$",
+                  "title": "Tenant name",
+                  "type": "string",
+                  "description": "Name of the tenant for which the list of alerts will be displayed"
+                },
+                "group": {
+                  "default": "",
+                  "type": "string",
+                  "title": "Filter by alert group",
+                  "description": "Filter alerts by their group name. If not specified, all groups are included."
+                }
+              },
+              "type": "object"
+            }
+          }
+        }
+      }
+    ],
+    "elasticsearch-mcp-server": [
+      {
+        "ToolSpecification": {
+          "name": "get_shards",
+          "description": "Get shard information for all or specific indices",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "index": {
+                  "type": "string",
+                  "description": "Optional index name to get shard information for"
+                }
+              },
+              "$schema": "http://json-schema.org/draft-07/schema#",
+              "additionalProperties": false,
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "search",
+          "description": "Perform an Elasticsearch search with the provided query DSL. Highlights are always enabled.",
+          "input_schema": {
+            "json": {
+              "required": [
+                "index",
+                "queryBody"
+              ],
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "index": {
+                  "type": "string",
+                  "description": "Name of the Elasticsearch index to search",
+                  "minLength": 1
+                },
+                "queryBody": {
+                  "additionalProperties": {},
+                  "type": "object",
+                  "description": "Complete Elasticsearch query DSL object that can include query, size, from, sort, etc."
+                },
+                "profile": {
+                  "description": "Whether to include query profiling information",
+                  "type": "boolean",
+                  "default": false
+                },
+                "explain": {
+                  "description": "Whether to include explanation of how the query was executed",
+                  "type": "boolean",
+                  "default": false
+                }
+              },
+              "$schema": "http://json-schema.org/draft-07/schema#"
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "get_mappings",
+          "description": "Get field mappings for a specific Elasticsearch index",
+          "input_schema": {
+            "json": {
+              "type": "object",
+              "required": [
+                "index"
+              ],
+              "additionalProperties": false,
+              "$schema": "http://json-schema.org/draft-07/schema#",
+              "properties": {
+                "index": {
+                  "description": "Name of the Elasticsearch index to get mappings for",
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ToolSpecification": {
+          "name": "list_indices",
+          "description": "List all available Elasticsearch indices",
+          "input_schema": {
+            "json": {
+              "properties": {
+                "indexPattern": {
+                  "minLength": 1,
+                  "type": "string",
+                  "description": "Index pattern of Elasticsearch indices to list"
+                }
+              },
+              "additionalProperties": false,
+              "type": "object",
+              "$schema": "http://json-schema.org/draft-07/schema#",
+              "required": [
+                "indexPattern"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "context_manager": {
+    "max_context_files_size": 150000,
+    "current_profile": "q_cli_default",
+    "paths": [
+      "AmazonQ.md",
+      "AGENTS.md",
+      "README.md",
+      ".amazonq/rules/**/*.md"
+    ],
+    "hooks": {}
+  },
+  "context_message_length": 1510,
+  "latest_summary": null,
+  "model_info": {
+    "model_name": "claude-sonnet-4",
+    "model_id": "claude-sonnet-4",
+    "context_window_tokens": 200000
+  },
+  "file_line_tracker": {},
+  "checkpoint_manager": null,
+  "mcp_enabled": true
+}

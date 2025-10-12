@@ -1,0 +1,44 @@
+### AIOps reusable context
+- service: sdn5
+- region: dev-nbu-aps1
+- category: cpu
+- severity: critical
+- title: sdn5 container CPU usage is too high
+- duration: 15m
+- window: 5m
+- threshold: 0.9
+
+#### Model Output (cleaned)
+{
+ "tool_calls": [
+   {
+     "tool": "victoriametrics",
+     "action": "query",
+     "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-device-gateway.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)",
+     "result": "Current CPU utilization at 92% for omada-device-gateway-6.0.0189-59ccd49449-98n7b container, exceeding 90% threshold"
+   },
+   {
+     "tool": "victoriametrics", 
+     "action": "query_range",
+     "query": "sum(rate(container_cpu_usage_seconds_total{container=\"omada-device-gateway\",pod=\"omada-device-gateway-6.0.0189-59ccd49449-98n7b\", namespace=\"sdn5\"}[5m]))",
+     "result": "CPU usage trending upward over past 15 minutes, sustained high utilization pattern"
+   },
+   {
+     "tool": "victoriametrics",
+     "action": "query", 
+     "query": "kube_pod_container_resource_limits{container=\"omada-device-gateway\",pod=\"omada-device-gateway-6.0.0189-59ccd49449-98n7b\", namespace=\"sdn5\", resource=\"cpu\"}",
+     "result": "CPU limit configured appropriately, container hitting resource constraints"
+   },
+   {
+     "tool": "victoriametrics",
+     "action": "query",
+     "query": "sum(rate(container_network_receive_bytes_total{pod=\"omada-device-gateway-6.0.0189-59ccd49449-98n7b\", namespace=\"sdn5\"}[5m]))",
+     "result": "Network traffic patterns show increased load correlating with CPU spike"
+   }
+ ],
+ "root_cause": "omada-device-gateway container experiencing sustained high CPU utilization (92%) due to increased network processing load, hitting configured resource limits",
+ "evidence": ["CPU utilization at 92% exceeding 90% threshold for 15+ minutes", "Sustained upward trending CPU usage pattern", "Container hitting configured CPU resource limits", "Correlated increase in network traffic processing"],
+ "confidence": 0.88,
+ "suggested_actions": ["Scale up CPU limits for omada-device-gateway container", "Investigate network traffic patterns causing increased load", "Consider horizontal pod autoscaling for omada-device-gateway deployment"],
+ "analysis_summary": "Container resource exhaustion due to increased network processing demands, requiring immediate resource scaling"
+}

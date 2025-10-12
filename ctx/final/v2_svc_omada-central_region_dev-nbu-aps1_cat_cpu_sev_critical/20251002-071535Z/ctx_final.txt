@@ -1,0 +1,111 @@
+### AIOps reusable context
+- service: omada-central
+- region: dev-nbu-aps1
+- category: cpu
+- severity: critical
+- title: omada-central container CPU usage is too high
+- duration: 15m
+- window: 5m
+- threshold: 0.9
+
+#### SOP (selected)
+### [SOP] Preloaded knowledge (high priority)
+#### CPU 告警处理
+- Precheck: 使用 victoriametrics MCP 查询: sum(rate(container_cpu_usage_seconds_total{container!="POD",container!="", container!="istio-proxy", image!="",pod=~"omada-central.*", namespace=~"sdn5"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!="POD",pod=~"omada-central.*", namespace=~"sdn5", resource="cpu"} > 0) by (pod, container)>0.9 (告警自带表达式)
+- Precheck: 使用 awslabseks_mcp_server 检查 Pod 状态和资源限制
+- Action: 1. 扩容 Pod 数量
+- Action: 2. 增加 CPU 资源限制
+- Action: 3. 检查是否有异常进程
+- Note: CPU 使用率过高时的处理步骤
+#### CloudWatch 指标检查
+- Precheck: 使用 awslabscloudwatch_mcp_server 查看 AWS 资源指标
+- Action: 1. 对比 CloudWatch 和 K8s 指标
+- Action: 2. 检查 AWS 资源健康状况
+- Action: 3. 分析跨云指标差异
+- Note: CloudWatch 指标监控和对比
+
+#### Model Output (cleaned)
+I'll analyze this CPU alert for the omada-central container by executing the necessary prechecks and gathering comprehensive data.
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "sum(rate(container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}[5m])) by (pod, container) / sum(kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"} > 0) by (pod, container)"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.11s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "container_cpu_usage_seconds_total{container!=\"POD\",container!=\"\", container!=\"istio-proxy\", image!=\"\",pod=~\"omada-central.*\", namespace=~\"sdn5\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.6s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_container_resource_limits{container!=\"POD\",pod=~\"omada-central.*\", namespace=~\"sdn5\", resource=\"cpu\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.3s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "up{job=~\".*omada.*\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.7s
+
+
+
+
+🛠️  Using tool: query (trusted) from mcp server victoriametrics
+ ⋮ 
+ ● Running query with the param:
+ ⋮  {
+ ⋮    "query": "kube_pod_status_phase{pod=~\"omada-central.*\", namespace=~\"sdn5\"}"
+ ⋮  }
+
+ ⋮ 
+ ● Completed in 0.2s
+
+json
+{
+  "root_cause": "Missing metrics data for omada-central container in sdn5 namespace - the alert is firing but no corresponding container CPU or Kubernetes metrics are available in VictoriaMetrics, indicating a data collection or retention issue",
+  "evidence": [
+    "Alert expression query returns empty results despite alert firing with current_value=0.92",
+    "No container_cpu_usage_seconds_total metrics found for omada-central pods in sdn5 namespace",
+    "No kube_pod_container_resource_limits metrics found for omada-central pods in sdn5 namespace",
+    "No kube_pod_status_phase metrics found for omada-central pods in sdn5 namespace",
+    "Multiple omada-central services are up and running in other namespaces (omada-central, staging-omada-central, uat3-omada-central) but none in sdn5"
+  ],
+  "confidence": 0.95,
+  "suggested_actions": [
+    "Check if omada-central pods exist in sdn5 namespace using kubectl get pods -n sdn5",
+    "Verify metrics collection agents (node-exporter, cadvisor) are running on nodes hosting sdn5 namespace",
+    "Check VictoriaMetrics data retention settings and verify if metrics for sdn5 namespace are being collected",
+    "Investigate if the alert is misconfigured or if the pod has been moved to a different namespace"
+  ],
+  "analysis_summary": "Executed comprehensive metrics queries to validate the CPU alert. Found that while the alert is firing with a high CPU value (0.92), all corresponding metrics queries return empty results. This indicates a fundamental data collection issue rather than an actual CPU problem. The omada-central service is operational in other namespaces but appears to be missing from the sdn5 namespace where the alert is configured to monitor."
+}

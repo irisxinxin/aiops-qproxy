@@ -1,0 +1,374 @@
+package execchat
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"os/exec"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/creack/pty"
+)
+
+type DialOptions struct {
+	// Path to q binary (default: q)
+	QBin string
+	// WakeMode: ctrlc/newline/none
+	WakeMode string
+}
+
+type Client struct {
+	cmd  *exec.Cmd
+	ptyf *os.File
+	mu   sync.Mutex // serialize writes
+
+	// reader state
+	rmu       sync.RWMutex
+	buf       bytes.Buffer
+	dropCount int // total bytes dropped from head due to capping (protected by rmu)
+	
+	// process management
+	closed    bool
+	closeCh   chan struct{}
+	closeOnce sync.Once
+}
+
+const maxBufferSize = 1024 * 1024 // 1MB buffer limit
+
+func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
+	bin := strings.TrimSpace(opt.QBin)
+	if bin == "" {
+		bin = "q"
+	}
+	
+	// 检查 Q CLI 是否可用
+	if _, err := exec.LookPath(bin); err != nil {
+		return nil, fmt.Errorf("q binary not found: %w", err)
+	}
+	
+	// 使用简单的参数，避免复杂的 MCP 初始化
+	cmd := exec.CommandContext(ctx, bin, "chat")
+	
+	// 设置环境变量，确保输出干净
+	env := []string{
+		"NO_COLOR=1",
+		"CLICOLOR=0", 
+		"TERM=dumb",
+		"FORCE_COLOR=0",
+		"COLORTERM=",
+		"Q_DISABLE_TELEMETRY=1",
+		"Q_DISABLE_SPINNER=1",
+	}
+	
+	// 保留必要的系统环境变量
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "PATH=") || 
+		   strings.HasPrefix(e, "HOME=") ||
+		   strings.HasPrefix(e, "USER=") ||
+		   strings.HasPrefix(e, "AWS_") ||
+		   strings.HasPrefix(e, "PYTHONPATH=") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = env
+
+	f, err := pty.Start(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start q chat: %w", err)
+	}
+
+	c := &Client{
+		cmd:     cmd,
+		ptyf:    f,
+		closeCh: make(chan struct{}),
+	}
+	
+	// 启动读取循环
+	go c.readLoop()
+
+	// 设置合适的窗口尺寸
+	_ = pty.Setsize(f, &pty.Winsize{Rows: 30, Cols: 120})
+
+	// 等待 Q CLI 启动并稳定
+	time.Sleep(1 * time.Second)
+
+	// 简单的唤醒策略
+	mode := strings.ToLower(strings.TrimSpace(opt.WakeMode))
+	switch mode {
+	case "ctrlc":
+		// 发送 Ctrl-C，然后回车
+		_, _ = f.Write([]byte{0x03})
+		time.Sleep(100 * time.Millisecond)
+		_, _ = f.Write([]byte{'\r'})
+	case "newline", "":
+		// 默认只发送回车
+		_, _ = f.Write([]byte{'\r'})
+	case "none":
+		// 不发送任何内容
+	}
+
+	// 等待初始提示符
+	if err := c.waitForPrompt(ctx, 10*time.Second); err != nil {
+		_ = c.Close()
+		return nil, fmt.Errorf("failed to get initial prompt: %w", err)
+	}
+
+	log.Printf("execchat: Q CLI session established")
+	return c, nil
+}
+
+func (c *Client) readLoop() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("execchat: readLoop panic: %v", r)
+		}
+	}()
+	
+	buf := make([]byte, 4096)
+	for {
+		select {
+		case <-c.closeCh:
+			return
+		default:
+		}
+		
+		// 设置读取超时
+		_ = c.ptyf.SetReadDeadline(time.Now().Add(1 * time.Second))
+		n, err := c.ptyf.Read(buf)
+		
+		if err != nil {
+			if err == io.EOF {
+				log.Printf("execchat: process ended")
+				return
+			}
+			if os.IsTimeout(err) {
+				continue // 超时是正常的，继续读取
+			}
+			log.Printf("execchat: read error: %v", err)
+			return
+		}
+		
+		if n > 0 {
+			c.rmu.Lock()
+			c.buf.Write(buf[:n])
+			
+			// 限制缓冲区大小
+			if c.buf.Len() > maxBufferSize {
+				// 保留最后的 maxBufferSize/2 字节
+				data := c.buf.Bytes()
+				keepSize := maxBufferSize / 2
+				c.dropCount += len(data) - keepSize
+				c.buf.Reset()
+				c.buf.Write(data[len(data)-keepSize:])
+			}
+			c.rmu.Unlock()
+		}
+	}
+}
+
+func (c *Client) waitForPrompt(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if c.hasPrompt() {
+				return nil
+			}
+		}
+	}
+}
+
+var promptRegex = regexp.MustCompile(`(?m)>\s*$`)
+
+func (c *Client) hasPrompt() bool {
+	c.rmu.RLock()
+	defer c.rmu.RUnlock()
+	
+	// 检查最后 500 字节是否包含提示符
+	data := c.buf.Bytes()
+	if len(data) > 500 {
+		data = data[len(data)-500:]
+	}
+	
+	// 清理 ANSI 序列
+	cleaned := cleanANSI(string(data))
+	return promptRegex.MatchString(cleaned)
+}
+
+func cleanANSI(s string) string {
+	// 移除 ANSI 转义序列
+	ansiRegex := regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	return ansiRegex.ReplaceAllString(s, "")
+}
+
+func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (string, error) {
+	if c.closed {
+		return "", fmt.Errorf("client is closed")
+	}
+	
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return "", fmt.Errorf("empty prompt")
+	}
+	
+	// 清空缓冲区，准备接收新的响应
+	c.rmu.Lock()
+	c.buf.Reset()
+	c.rmu.Unlock()
+	
+	// 发送提示
+	c.mu.Lock()
+	_, err := c.ptyf.Write([]byte(prompt + "\r"))
+	c.mu.Unlock()
+	
+	if err != nil {
+		return "", fmt.Errorf("failed to send prompt: %w", err)
+	}
+	
+	// 等待响应
+	if idle <= 0 {
+		idle = 60 * time.Second
+	}
+	
+	return c.waitForResponse(ctx, idle)
+}
+
+func (c *Client) waitForResponse(ctx context.Context, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	
+	var lastContent string
+	stableCount := 0
+	
+	for {
+		select {
+		case <-ctx.Done():
+			// 超时时返回当前内容（如果有的话）
+			c.rmu.RLock()
+			content := c.buf.String()
+			c.rmu.RUnlock()
+			
+			if content != "" {
+				cleaned := c.cleanResponse(content)
+				if cleaned != "" {
+					log.Printf("execchat: timeout but returning partial response")
+					return cleaned, nil
+				}
+			}
+			return "", ctx.Err()
+			
+		case <-ticker.C:
+			c.rmu.RLock()
+			content := c.buf.String()
+			c.rmu.RUnlock()
+			
+			// 检查是否有提示符（表示响应完成）
+			if c.hasPrompt() {
+				cleaned := c.cleanResponse(content)
+				return cleaned, nil
+			}
+			
+			// 检查内容是否稳定（没有新内容产生）
+			if content == lastContent {
+				stableCount++
+				if stableCount >= 10 { // 2秒没有新内容
+					cleaned := c.cleanResponse(content)
+					if cleaned != "" {
+						log.Printf("execchat: content stable, returning response")
+						return cleaned, nil
+					}
+				}
+			} else {
+				stableCount = 0
+				lastContent = content
+			}
+		}
+	}
+}
+
+func (c *Client) cleanResponse(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	
+	// 清理 ANSI 序列
+	cleaned := cleanANSI(raw)
+	
+	// 移除提示符行
+	lines := strings.Split(cleaned, "\n")
+	var result []string
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// 跳过空行和提示符行
+		if line == "" || line == ">" || strings.HasPrefix(line, "> ") {
+			continue
+		}
+		result = append(result, line)
+	}
+	
+	return strings.TrimSpace(strings.Join(result, "\n"))
+}
+
+func (c *Client) Close() error {
+	c.closeOnce.Do(func() {
+		c.closed = true
+		close(c.closeCh)
+		
+		if c.ptyf != nil {
+			_ = c.ptyf.Close()
+		}
+		
+		if c.cmd != nil && c.cmd.Process != nil {
+			// 尝试优雅关闭
+			_ = c.cmd.Process.Signal(os.Interrupt)
+			
+			// 等待一段时间后强制杀死
+			done := make(chan error, 1)
+			go func() {
+				done <- c.cmd.Wait()
+			}()
+			
+			select {
+			case <-time.After(5 * time.Second):
+				_ = c.cmd.Process.Kill()
+				<-done
+			case <-done:
+			}
+		}
+	})
+	
+	return nil
+}
+
+func (c *Client) Ping(ctx context.Context) error {
+	if c.closed {
+		return fmt.Errorf("client is closed")
+	}
+	
+	// 检查进程是否还在运行
+	if c.cmd != nil && c.cmd.Process != nil {
+		// 发送信号 0 检查进程是否存在
+		if err := c.cmd.Process.Signal(os.Signal(nil)); err != nil {
+			return fmt.Errorf("process not running: %w", err)
+		}
+	}
+	
+	return nil
+}

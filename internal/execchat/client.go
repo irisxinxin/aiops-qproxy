@@ -2,7 +2,6 @@ package execchat
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -17,21 +16,22 @@ import (
 )
 
 type DialOptions struct {
-	// Path to q binary (default: q)
-	QBin string
-	// WakeMode: ctrlc/newline/none
+	QBin     string
 	WakeMode string
 }
 
 type Client struct {
-	cmd  *exec.Cmd
-	ptyf *os.File
-	mu   sync.Mutex // serialize writes
-
-	// reader state
-	rmu       sync.Mutex
-	buf       bytes.Buffer
-	dropCount int // total bytes dropped from head due to capping (protected by rmu)
+	cmd     *exec.Cmd
+	ptyf    *os.File
+	mu      sync.Mutex
+	
+	// 简化的缓冲区管理
+	output  strings.Builder
+	outputMu sync.RWMutex
+	
+	closed    bool
+	closeCh   chan struct{}
+	closeOnce sync.Once
 }
 
 func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
@@ -39,312 +39,300 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	if bin == "" {
 		bin = "q"
 	}
-	cmd := exec.CommandContext(ctx, bin, "chat", "--trust-all-tools")
-	// Ensure non-colored simple output
-	cmd.Env = append(os.Environ(), "NO_COLOR=1", "CLICOLOR=0", "TERM=dumb")
+	
+	// 检查 Q CLI 是否可用
+	if _, err := exec.LookPath(bin); err != nil {
+		return nil, fmt.Errorf("q binary not found: %w", err)
+	}
+	
+	// 使用最简单的参数启动 Q CLI
+	cmd := exec.CommandContext(ctx, bin, "chat", "--no-browser")
+	
+	// 设置干净的环境
+	env := []string{
+		"NO_COLOR=1",
+		"TERM=dumb",
+		"Q_DISABLE_TELEMETRY=1",
+		"Q_DISABLE_SPINNER=1",
+		"Q_DISABLE_ANIMATIONS=1",
+	}
+	
+	// 保留必要的环境变量
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "PATH=") || 
+		   strings.HasPrefix(e, "HOME=") ||
+		   strings.HasPrefix(e, "USER=") ||
+		   strings.HasPrefix(e, "AWS_") {
+			env = append(env, e)
+		}
+	}
+	cmd.Env = env
 
+	// 启动 PTY
 	f, err := pty.Start(cmd)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to start q chat: %w", err)
 	}
 
-	c := &Client{cmd: cmd, ptyf: f}
+	c := &Client{
+		cmd:     cmd,
+		ptyf:    f,
+		closeCh: make(chan struct{}),
+	}
+	
+	// 设置 PTY 大小
+	_ = pty.Setsize(f, &pty.Winsize{Rows: 24, Cols: 80})
+
+	// 启动读取循环
 	go c.readLoop()
 
-	// Wake prompt once
+	// 等待 Q CLI 启动
+	time.Sleep(2 * time.Second)
+
+	// 发送初始命令唤醒 Q CLI
 	mode := strings.ToLower(strings.TrimSpace(opt.WakeMode))
-	// 设置一个合适的窗口尺寸，避免 UI 输出受限
-	_ = pty.Setsize(f, &pty.Winsize{Rows: 30, Cols: 120})
-	// 更强唤醒：Ctrl-C + 回车（两次），再回车
-	_, _ = f.Write([]byte{0x03})
-	_, _ = f.Write([]byte("\r"))
-	if mode == "ctrlc" {
-		_, _ = f.Write([]byte{0x03})
-		_, _ = f.Write([]byte("\r"))
-	} else {
-		_, _ = f.Write([]byte("\r"))
+	switch mode {
+	case "ctrlc":
+		_, _ = f.Write([]byte{0x03, '\n'})
+	case "newline", "":
+		_, _ = f.Write([]byte{'\n'})
 	}
-	if qstreamDebugEnabled() {
-		log.Printf("execchat: started q at %s, wake=%s", bin, mode)
+
+	// 等待提示符出现
+	if err := c.waitForPrompt(ctx, 15*time.Second); err != nil {
+		_ = c.Close()
+		return nil, fmt.Errorf("failed to get initial prompt: %w", err)
 	}
+
+	log.Printf("execchat: Q CLI session ready")
 	return c, nil
 }
 
 func (c *Client) readLoop() {
-	rd := bufio.NewReader(c.ptyf)
-	tmp := make([]byte, 4096)
-	for {
-		n, err := rd.Read(tmp)
-		if n > 0 {
-			c.rmu.Lock()
-			c.buf.Write(tmp[:n])
-			c.capBufferLocked()
-			c.rmu.Unlock()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("execchat: readLoop panic: %v", r)
 		}
-		if err != nil {
+	}()
+	
+	scanner := bufio.NewScanner(c.ptyf)
+	for scanner.Scan() {
+		select {
+		case <-c.closeCh:
 			return
+		default:
+		}
+		
+		line := scanner.Text()
+		c.outputMu.Lock()
+		c.output.WriteString(line)
+		c.output.WriteString("\n")
+		c.outputMu.Unlock()
+	}
+	
+	if err := scanner.Err(); err != nil && !c.closed {
+		log.Printf("execchat: scanner error: %v", err)
+	}
+}
+
+var promptPattern = regexp.MustCompile(`(?m)>\s*$`)
+
+func (c *Client) waitForPrompt(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			if c.hasPrompt() {
+				return nil
+			}
 		}
 	}
 }
 
-const maxReadBufferBytes = 256 * 1024
-
-func (c *Client) capBufferLocked() {
-	if c.buf.Len() <= maxReadBufferBytes {
-		return
-	}
-	b := c.buf.Bytes()
-	removed := len(b) - maxReadBufferBytes
-	if removed < 0 {
-		removed = 0
-	}
-	tail := b[removed:]
-	c.buf.Reset()
-	_, _ = c.buf.Write(tail)
-	c.dropCount += removed
-}
-
-// hasPromptFast: check tail for '>' with non-alnum before, ignoring simple whitespace.
-func hasPromptFast(b []byte) bool {
-	// trim right spaces
-	k := len(b)
-	for k > 0 {
-		c := b[k-1]
-		if c == ' ' || c == '\r' || c == '\n' || c == '\t' {
-			k--
-			continue
-		}
-		break
-	}
-	if k == 0 {
+func (c *Client) hasPrompt() bool {
+	c.outputMu.RLock()
+	content := c.output.String()
+	c.outputMu.RUnlock()
+	
+	// 检查最后几行是否有提示符
+	lines := strings.Split(content, "\n")
+	if len(lines) < 1 {
 		return false
 	}
-	if b[k-1] != '>' {
-		return false
-	}
-	if k-1 == 0 {
-		return true
-	}
-	prev := b[k-2]
-	return !((prev >= 'a' && prev <= 'z') || (prev >= 'A' && prev <= 'Z') || (prev >= '0' && prev <= '9'))
-}
-
-func qstreamDebugEnabled() bool {
-	return strings.ToLower(os.Getenv("QPROXY_QSTREAM_DEBUG")) == "1"
-}
-
-var (
-	csiRe       = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
-	oscRe       = regexp.MustCompile(`\x1b\][^\a]*\x07`)
-	ctrlRe      = regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`)
-	tuiPrefixRE = regexp.MustCompile(`(?m)^(>|!>|\s*\x1b\[0m)+\s*`)
-)
-
-func cleanForDebug(s string) string {
-	s = csiRe.ReplaceAllString(s, "")
-	s = oscRe.ReplaceAllString(s, "")
-	s = ctrlRe.ReplaceAllString(s, "")
-	s = tuiPrefixRE.ReplaceAllString(s, "")
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
-	for strings.Contains(s, "\n\n\n") {
-		s = strings.ReplaceAll(s, "\n\n\n", "\n\n")
-	}
-	return strings.TrimSpace(s)
-}
-
-// extractFirstJSON searches first complete JSON object in s and returns it.
-func extractFirstJSON(s string) (string, bool) {
-	type st struct {
-		inStr, esc   bool
-		depth, start int
-	}
-	runes := []rune(s)
-	var state st
-	state.start = -1
-	for i, r := range runes {
-		if state.inStr {
-			if state.esc {
-				state.esc = false
-				continue
-			}
-			if r == '\\' {
-				state.esc = true
-				continue
-			}
-			if r == '"' {
-				state.inStr = false
-			}
-			continue
-		}
-		if r == '"' {
-			state.inStr = true
-			continue
-		}
-		if r == '{' {
-			if state.depth == 0 {
-				state.start = i
-			}
-			state.depth++
-			continue
-		}
-		if r == '}' {
-			if state.depth > 0 {
-				state.depth--
-				if state.depth == 0 && state.start >= 0 {
-					return string(runes[state.start : i+1]), true
-				}
-			}
+	
+	// 检查最后几行
+	for i := len(lines) - 1; i >= 0 && i >= len(lines)-3; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == ">" || strings.HasSuffix(line, "> ") {
+			return true
 		}
 	}
-	return "", false
+	
+	return promptPattern.MatchString(content)
 }
 
 func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (string, error) {
-	p := strings.TrimSpace(prompt)
-	if p == "" {
+	if c.closed {
+		return "", fmt.Errorf("client is closed")
+	}
+	
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
 		return "", fmt.Errorf("empty prompt")
 	}
-
-	// write prompt
+	
+	// 清空输出缓冲区
+	c.outputMu.Lock()
+	c.output.Reset()
+	c.outputMu.Unlock()
+	
+	// 发送命令
 	c.mu.Lock()
-	_, err := c.ptyf.Write([]byte(p + "\r"))
+	_, err := c.ptyf.Write([]byte(prompt + "\n"))
 	c.mu.Unlock()
+	
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to send prompt: %w", err)
 	}
-	if qstreamDebugEnabled() {
-		pp := p
-		if len(pp) > 200 {
-			pp = pp[:200] + "..."
-		}
-		log.Printf("execchat: <<PROMPT len=%d preview=%q", len(p), pp)
-	}
-
-	// wait until prompt appears in new tail
-	// 对于 warmup 等首次交互，给更长默认等待（120s）；正常管理命令由上层传入较短 idle
-	deadline := time.Now().Add(idle)
+	
+	// 等待响应
 	if idle <= 0 {
-		deadline = time.Now().Add(120 * time.Second)
+		idle = 30 * time.Second
 	}
+	
+	return c.waitForResponse(ctx, idle)
+}
 
-	// logical start sequence = dropCount + len(buf)
-	startSeq := 0
-	c.rmu.Lock()
-	startSeq = c.dropCount + c.buf.Len()
-	// auto-confirm for /clear
-	needConfirm := strings.HasPrefix(p, "/clear")
-	confirmed := false
-	lastLog := time.Now()
+func (c *Client) waitForResponse(ctx context.Context, timeout time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	
+	var lastContent string
+	stableCount := 0
+	
 	for {
-		// check new data for prompt
-		curSeq := c.dropCount + c.buf.Len()
-		effStart := startSeq - c.dropCount
-		effCur := curSeq - c.dropCount
-		if effStart < 0 {
-			effStart = 0
-		}
-		if effCur > effStart {
-			tail := c.buf.Bytes()[effStart:effCur]
-			// only scan last 500 bytes
-			if len(tail) > 500 {
-				tail = tail[len(tail)-500:]
-			}
-			// detect confirm question
-			if needConfirm && !confirmed {
-				lt := strings.ToLower(string(tail))
-				// 兼容多种文案
-				if strings.Contains(lt, "are you sure") || strings.Contains(lt, "confirm") || strings.Contains(lt, "[y/n]") {
-					c.rmu.Unlock()
-					c.mu.Lock()
-					_, _ = c.ptyf.Write([]byte("y\r"))
-					c.mu.Unlock()
-					c.rmu.Lock()
-					confirmed = true
-				}
-			}
-			// 如果 tail 只有 CRLF，尝试主动敲回车唤醒一次
-			if len(tail) <= 2 && bytes.Equal(tail, []byte("\r\n")) {
-				c.rmu.Unlock()
-				c.mu.Lock()
-				_, _ = c.ptyf.Write([]byte("\r"))
-				c.mu.Unlock()
-				c.rmu.Lock()
-			}
-			if hasPromptFast(tail) {
-				out := make([]byte, effCur-effStart)
-				copy(out, c.buf.Bytes()[effStart:effCur])
-				c.rmu.Unlock()
-				if qstreamDebugEnabled() {
-					prev := out
-					if len(prev) > 400 {
-						prev = prev[len(prev)-400:]
-					}
-					log.Printf("execchat: >>RESPONSE bytes=%d tail=%q", len(out), string(prev))
-					// debug-clean preview （与 HTTP runner 类似）
-					cleaned := cleanForDebug(string(prev))
-					if cleaned != "" {
-						log.Printf("execchat: >>CLEANED preview=%q", cleaned)
-					}
-				}
-				return string(out), nil
-			}
-			// If a complete JSON object already present, return early
-			if js, ok := extractFirstJSON(string(tail)); ok {
-				c.rmu.Unlock()
-				if qstreamDebugEnabled() {
-					prev := js
-					if len(prev) > 400 {
-						prev = prev[:400] + "..."
-					}
-					log.Printf("execchat: >>RESPONSE (json) bytes=%d preview=%q", len(js), prev)
-					cleaned := cleanForDebug(prev)
-					if cleaned != "" {
-						log.Printf("execchat: >>CLEANED (json) preview=%q", cleaned)
-					}
-				}
-				return js, nil
-			}
-		}
-		if qstreamDebugEnabled() && time.Since(lastLog) >= time.Second {
-			prev := c.buf.Bytes()
-			if len(prev) > 200 {
-				prev = prev[len(prev)-200:]
-			}
-			log.Printf("execchat: waiting... cur_bytes=%d tail=%q", c.buf.Len(), string(prev))
-			lastLog = time.Now()
-		}
-		// wait with timeout using small sleep, avoid cond.Wait races
-		remain := time.Until(deadline)
-		if remain <= 0 {
-			c.rmu.Unlock()
-			return "", context.DeadlineExceeded
-		}
-		sleep := 100 * time.Millisecond
-		if remain < sleep {
-			sleep = remain
-		}
-		c.rmu.Unlock()
 		select {
 		case <-ctx.Done():
+			// 超时时返回当前内容
+			c.outputMu.RLock()
+			content := c.output.String()
+			c.outputMu.RUnlock()
+			
+			cleaned := c.cleanResponse(content)
+			if cleaned != "" {
+				return cleaned, nil
+			}
 			return "", ctx.Err()
-		case <-time.After(sleep):
+			
+		case <-ticker.C:
+			c.outputMu.RLock()
+			content := c.output.String()
+			c.outputMu.RUnlock()
+			
+			// 检查是否有新的提示符（表示响应完成）
+			if c.hasPrompt() && content != lastContent {
+				cleaned := c.cleanResponse(content)
+				if cleaned != "" {
+					return cleaned, nil
+				}
+			}
+			
+			// 检查内容稳定性
+			if content == lastContent {
+				stableCount++
+				if stableCount >= 6 { // 3秒稳定
+					cleaned := c.cleanResponse(content)
+					if cleaned != "" {
+						return cleaned, nil
+					}
+				}
+			} else {
+				stableCount = 0
+				lastContent = content
+			}
 		}
-		c.rmu.Lock()
 	}
 }
 
-func (c *Client) Close() error {
-	_ = c.ptyf.Close()
-	if c.cmd != nil && c.cmd.Process != nil {
-		_ = c.cmd.Process.Kill()
+func (c *Client) cleanResponse(raw string) string {
+	if raw == "" {
+		return ""
 	}
+	
+	// 按行处理
+	lines := strings.Split(raw, "\n")
+	var result []string
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		// 跳过空行和提示符行
+		if line == "" || line == ">" || strings.HasPrefix(line, "> ") {
+			continue
+		}
+		
+		// 跳过明显的控制字符
+		if strings.Contains(line, "\x1b") {
+			continue
+		}
+		
+		result = append(result, line)
+	}
+	
+	return strings.TrimSpace(strings.Join(result, "\n"))
+}
+
+func (c *Client) Close() error {
+	c.closeOnce.Do(func() {
+		c.closed = true
+		close(c.closeCh)
+		
+		if c.ptyf != nil {
+			_ = c.ptyf.Close()
+		}
+		
+		if c.cmd != nil && c.cmd.Process != nil {
+			// 优雅关闭
+			_ = c.cmd.Process.Signal(os.Interrupt)
+			
+			// 等待进程结束
+			done := make(chan error, 1)
+			go func() {
+				done <- c.cmd.Wait()
+			}()
+			
+			select {
+			case <-time.After(3 * time.Second):
+				_ = c.cmd.Process.Kill()
+			case <-done:
+			}
+		}
+	})
+	
 	return nil
 }
 
 func (c *Client) Ping(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	_, err := c.ptyf.Write([]byte("\r"))
-	return err
+	if c.closed {
+		return fmt.Errorf("client is closed")
+	}
+	
+	// 检查进程状态
+	if c.cmd != nil && c.cmd.Process != nil {
+		if err := c.cmd.Process.Signal(os.Signal(nil)); err != nil {
+			return fmt.Errorf("process not running: %w", err)
+		}
+	}
+	
+	return nil
 }
