@@ -131,8 +131,8 @@ func (s *Session) Warmup(ctx context.Context, to time.Duration) error {
 	if to <= 0 {
 		to = 15 * time.Second
 	}
-	// 预热同样可能出现确认；exec 模式会自动识别并确认
-	_, err := s.cli.Ask(ctx, "/clear", to)
+	// 使用 /help 触发输出与首个提示符，避免 /clear 的交互确认
+	_, err := s.cli.Ask(ctx, "/help", to)
 	return err
 }
 func (s *Session) AskOnce(prompt string) (string, error) {

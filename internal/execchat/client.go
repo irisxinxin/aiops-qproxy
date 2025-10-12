@@ -58,7 +58,9 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 	} else if mode == "newline" || mode == "" {
 		_, _ = f.Write([]byte("\r"))
 	}
-	if qstreamDebugEnabled() { log.Printf("execchat: started q at %s, wake=%s", bin, mode) }
+	if qstreamDebugEnabled() {
+		log.Printf("execchat: started q at %s, wake=%s", bin, mode)
+	}
 	return c, nil
 }
 
@@ -241,7 +243,9 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 				c.rmu.Unlock()
 				if qstreamDebugEnabled() {
 					prev := out
-					if len(prev) > 400 { prev = prev[len(prev)-400:] }
+					if len(prev) > 400 {
+						prev = prev[len(prev)-400:]
+					}
 					log.Printf("execchat: >>RESPONSE bytes=%d tail=%q", len(out), string(prev))
 				}
 				return string(out), nil
@@ -251,7 +255,9 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 				c.rmu.Unlock()
 				if qstreamDebugEnabled() {
 					prev := js
-					if len(prev) > 400 { prev = prev[:400] + "..." }
+					if len(prev) > 400 {
+						prev = prev[:400] + "..."
+					}
 					log.Printf("execchat: >>RESPONSE (json) bytes=%d preview=%q", len(js), prev)
 				}
 				return js, nil
@@ -259,7 +265,9 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 		}
 		if qstreamDebugEnabled() && time.Since(lastLog) >= time.Second {
 			prev := c.buf.Bytes()
-			if len(prev) > 200 { prev = prev[len(prev)-200:] }
+			if len(prev) > 200 {
+				prev = prev[len(prev)-200:]
+			}
 			log.Printf("execchat: waiting... cur_bytes=%d tail=%q", c.buf.Len(), string(prev))
 			lastLog = time.Now()
 		}
