@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -52,10 +53,15 @@ func Dial(ctx context.Context, opt DialOptions) (*Client, error) {
 
 	// Wake prompt once
 	mode := strings.ToLower(strings.TrimSpace(opt.WakeMode))
+	// 设置一个合适的窗口尺寸，避免 UI 输出受限
+	_ = pty.Setsize(f, &pty.Winsize{Rows: 30, Cols: 120})
+	// 更强唤醒：Ctrl-C + 回车（两次），再回车
+	_, _ = f.Write([]byte{0x03})
+	_, _ = f.Write([]byte("\r"))
 	if mode == "ctrlc" {
 		_, _ = f.Write([]byte{0x03})
 		_, _ = f.Write([]byte("\r"))
-	} else if mode == "newline" || mode == "" {
+	} else {
 		_, _ = f.Write([]byte("\r"))
 	}
 	if qstreamDebugEnabled() {
@@ -125,6 +131,26 @@ func hasPromptFast(b []byte) bool {
 
 func qstreamDebugEnabled() bool {
 	return strings.ToLower(os.Getenv("QPROXY_QSTREAM_DEBUG")) == "1"
+}
+
+var (
+	csiRe       = regexp.MustCompile(`\x1b\[[0-9;?]*[A-Za-z]`)
+	oscRe       = regexp.MustCompile(`\x1b\][^\a]*\x07`)
+	ctrlRe      = regexp.MustCompile(`[\x00-\x08\x0b\x0c\x0e-\x1f]`)
+	tuiPrefixRE = regexp.MustCompile(`(?m)^(>|!>|\s*\x1b\[0m)+\s*`)
+)
+
+func cleanForDebug(s string) string {
+	s = csiRe.ReplaceAllString(s, "")
+	s = oscRe.ReplaceAllString(s, "")
+	s = ctrlRe.ReplaceAllString(s, "")
+	s = tuiPrefixRE.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	for strings.Contains(s, "\n\n\n") {
+		s = strings.ReplaceAll(s, "\n\n\n", "\n\n")
+	}
+	return strings.TrimSpace(s)
 }
 
 // extractFirstJSON searches first complete JSON object in s and returns it.
@@ -237,6 +263,14 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 					confirmed = true
 				}
 			}
+			// 如果 tail 只有 CRLF，尝试主动敲回车唤醒一次
+			if len(tail) <= 2 && bytes.Equal(tail, []byte("\r\n")) {
+				c.rmu.Unlock()
+				c.mu.Lock()
+				_, _ = c.ptyf.Write([]byte("\r"))
+				c.mu.Unlock()
+				c.rmu.Lock()
+			}
 			if hasPromptFast(tail) {
 				out := make([]byte, effCur-effStart)
 				copy(out, c.buf.Bytes()[effStart:effCur])
@@ -247,6 +281,11 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 						prev = prev[len(prev)-400:]
 					}
 					log.Printf("execchat: >>RESPONSE bytes=%d tail=%q", len(out), string(prev))
+					// debug-clean preview （与 HTTP runner 类似）
+					cleaned := cleanForDebug(string(prev))
+					if cleaned != "" {
+						log.Printf("execchat: >>CLEANED preview=%q", cleaned)
+					}
 				}
 				return string(out), nil
 			}
@@ -259,6 +298,10 @@ func (c *Client) Ask(ctx context.Context, prompt string, idle time.Duration) (st
 						prev = prev[:400] + "..."
 					}
 					log.Printf("execchat: >>RESPONSE (json) bytes=%d preview=%q", len(js), prev)
+					cleaned := cleanForDebug(prev)
+					if cleaned != "" {
+						log.Printf("execchat: >>CLEANED (json) preview=%q", cleaned)
+					}
 				}
 				return js, nil
 			}
